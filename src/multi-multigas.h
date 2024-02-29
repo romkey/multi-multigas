@@ -3,7 +3,7 @@
 #include <Arduino.h>
 
 #include <DFRobot_MultiGasSensor.h>
-#include <wire.h>
+#include <Wire.h>
 
 class MultiMultiGas {
  public:
