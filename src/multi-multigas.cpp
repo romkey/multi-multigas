@@ -181,6 +181,93 @@ float MultiMultiGas::get_so2() {
     return nanf("");
 }
 
+
+float MultiMultiGas::get_cl2_raw() {
+  if(this->_cl2_sensor)
+    return this->_cl2_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_co_raw() {
+  if(this->_co_sensor)
+    return this->_co_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_h2_raw() {
+  if(this->_h2_sensor)
+    return this->_h2_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_h2s_raw() {
+  if(this->_h2s_sensor)
+    return this->_h2s_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_hf_raw() {
+  if(this->_hf_sensor)
+    return this->_hf_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_hcl_raw() {
+  if(this->_hcl_sensor)
+    return this->_hcl_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_o2_raw() {
+  if(this->_o2_sensor)
+    return this->_o2_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_o3_raw() {
+  if(this->_o3_sensor)
+    return this->_o3_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_nh3_raw() {
+  if(this->_nh3_sensor)
+    return this->_nh3_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_no2_raw() {
+  if(this->_no2_sensor)
+    return this->_no2_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_ph3_raw() {
+  if(this->_ph3_sensor)
+    return this->_ph3_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+float MultiMultiGas::get_so2_raw() {
+  if(this->_so2_sensor)
+    return this->_so2_sensor->getSensorVoltage();
+  else
+    return nanf("");
+}
+
+
+
 //void MultiMultiGas::change_addrs(uint8_t target_start, uint8_t target_end, uint8_t group, TwoWire &wire = Wire) {
 void MultiMultiGas::change_addrs(uint8_t target_start, uint8_t target_end, uint8_t group, TwoWire *wire) {
   Serial.println("change_addrs begin");
