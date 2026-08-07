@@ -1,0 +1,27 @@
+{
+  "name": "multi-multigas",
+  "version": "1.0.0",
+  "description": "Simple interface for multiple DFRobot I2C gas sensors on one bus",
+  "keywords": "gas, sensor, i2c, dfrobot, multigas",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/romkey/multi-multigas.git"
+  },
+  "authors": [
+    {
+      "name": "John Romkey",
+      "url": "https://github.com/romkey",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/romkey/multi-multigas",
+  "dependencies": [
+    {
+      "name": "DFRobot_MultiGasSensor",
+      "version": "https://github.com/DFRobot/DFRobot_MultiGasSensor.git"
+    }
+  ],
+  "frameworks": "arduino",
+  "platforms": "*"
+}
