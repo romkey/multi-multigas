@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 
@@ -6,11 +7,12 @@ from esphome.const import CONF_UNIT_OF_MEASUREMENT, UNIT_PARTS_PER_MILLION, UNIT
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = Path(__file__).resolve().parent
+TEST_CONFIG = Path(os.environ.get("ESPHOME_TEST_CONFIG", TESTS / "test.yaml"))
 
 
 def test_valid_config_loads():
     subprocess.run(
-        ["esphome", "config", str(TESTS / "test.yaml")],
+        ["esphome", "config", str(TEST_CONFIG)],
         check=True,
         cwd=ROOT,
     )

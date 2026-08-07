@@ -48,14 +48,20 @@ jobs:
             ~/.platformio
           key: esphome-${{ hashFiles('requirements-test.txt') }}
 
+      - name: Prepare ESPHome test config
+        run: |
+          sed "s|multi-multigas=\\.\\.|multi-multigas=${GITHUB_WORKSPACE}|" tests/test.yaml > tests/test-ci.yaml
+
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
 
       - name: Run config validation tests
         run: pytest tests/ -v
+        env:
+          ESPHOME_TEST_CONFIG: tests/test-ci.yaml
 
       - name: Validate ESPHome config
-        run: esphome config tests/test.yaml
+        run: esphome config tests/test-ci.yaml
 
       - name: Compile ESPHome config
-        run: esphome compile tests/test.yaml
+        run: esphome compile tests/test-ci.yaml
