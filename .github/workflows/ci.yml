@@ -50,7 +50,7 @@ jobs:
 
       - name: Prepare ESPHome test config
         run: |
-          sed "s|multi-multigas=\\.\\.|multi-multigas=${GITHUB_WORKSPACE}|" tests/test.yaml > tests/test-ci.yaml
+          sed "s|multi-multigas=\\.\\.|multi-multigas=file://${GITHUB_WORKSPACE}|" tests/test.yaml > tests/test-ci.yaml
 
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
