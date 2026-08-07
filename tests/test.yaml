@@ -8,12 +8,15 @@ external_components:
 
 esphome:
   name: multi-multigas-test
-  platform: ESP32
-  board: esp32dev
   libraries:
     - Wire
     - gas=https://github.com/DFRobot/DFRobot_MultiGasSensor
     - multigas=..
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
 
 i2c:
   sda: GPIO21

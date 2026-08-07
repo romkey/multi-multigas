@@ -3,6 +3,8 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
+#include <Wire.h>
+
 namespace esphome {
 namespace multi_gas {
 
@@ -16,7 +18,7 @@ void MultiGas::publish_if_available(sensor::Sensor *target, bool available, floa
 }
 
 void MultiGas::setup() {
-  if (!this->sensors_.begin(this->parent_->get_wire())) {
+  if (!this->sensors_.begin(&Wire)) {
     ESP_LOGE(TAG, "No DFRobot gas sensors found on I2C bus");
     this->mark_failed();
     return;
