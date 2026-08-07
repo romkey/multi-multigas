@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  platformio:
+    name: PlatformIO
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+          key: platformio-${{ hashFiles('platformio.ini', 'library.json') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build example firmware
+        run: pio run -e example
+
+  esphome:
+    name: ESPHome
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip and PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio
+          key: esphome-${{ hashFiles('requirements-test.txt') }}
+
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Run config validation tests
+        run: pytest tests/ -v
+
+      - name: Validate ESPHome config
+        run: esphome config tests/test.yaml
+
+      - name: Compile ESPHome config
+        run: esphome compile tests/test.yaml

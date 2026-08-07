@@ -1,0 +1,20 @@
+# Invalid config: multi_gas requires an i2c block.
+
+external_components:
+  - source:
+      type: local
+      path: ../esphome/my_components
+
+esphome:
+  name: multi-multigas-invalid
+  platform: ESP32
+  board: esp32dev
+  libraries:
+    - Wire
+    - gas=https://github.com/DFRobot/DFRobot_MultiGasSensor
+    - multigas=..
+
+multi_gas:
+  id: gas_sensors
+  co:
+    name: "Carbon Monoxide"

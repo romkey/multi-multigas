@@ -1,0 +1,28 @@
+# Minimal ESPHome config for CI compile validation.
+# Paths are relative to this file's directory.
+
+external_components:
+  - source:
+      type: local
+      path: ../esphome/my_components
+
+esphome:
+  name: multi-multigas-test
+  platform: ESP32
+  board: esp32dev
+  libraries:
+    - Wire
+    - gas=https://github.com/DFRobot/DFRobot_MultiGasSensor
+    - multigas=..
+
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+
+multi_gas:
+  id: gas_sensors
+  update_interval: 60s
+  co:
+    name: "Carbon Monoxide"
+  o2:
+    name: "Oxygen"
