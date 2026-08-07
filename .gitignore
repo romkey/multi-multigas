@@ -1,6 +1,7 @@
 .pio
 .venv/
 .esphome/
+tests/test-ci.yaml
 .pytest_cache/
 __pycache__/
 *.pyc
