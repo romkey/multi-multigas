@@ -66,7 +66,7 @@ esphome:
   libraries:
     - Wire
     - gas=https://github.com/DFRobot/DFRobot_MultiGasSensor
-    - multigas=https://github.com/romkey/multi-multigas
+    - multi-multigas=https://github.com/romkey/multi-multigas
 
 external_components:
   - source:

@@ -11,7 +11,7 @@ esphome:
   libraries:
     - Wire
     - gas=https://github.com/DFRobot/DFRobot_MultiGasSensor
-    - multigas=..
+    - multi-multigas=..
 
 esp32:
   board: esp32dev
