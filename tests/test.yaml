@@ -10,7 +10,6 @@ esphome:
   name: multi-multigas-test
   libraries:
     - Wire
-    - gas=https://github.com/DFRobot/DFRobot_MultiGasSensor
     - multi-multigas=..
 
 esp32:

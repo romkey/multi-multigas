@@ -9,7 +9,6 @@ esphome:
   name: multi-multigas-invalid
   libraries:
     - Wire
-    - gas=https://github.com/DFRobot/DFRobot_MultiGasSensor
     - multi-multigas=..
 
 esp32:
