@@ -1,15 +1,16 @@
 #pragma once
 
-#include "esphome/core/component.h"
+#include "esphome/components/i2c/i2c.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/core/component.h"
 
 #include <multi-multigas.h>
 
 namespace esphome {
 namespace multi_gas {
 
-class MultiGas : public sensor::Sensor, public PollingComponent {
-  public:
+class MultiGas : public PollingComponent, public i2c::I2CDevice {
+ public:
   MultiGas() = default;
 
 #ifdef USE_SENSOR
@@ -27,14 +28,16 @@ class MultiGas : public sensor::Sensor, public PollingComponent {
   SUB_SENSOR(so2)
 #endif
 
-    void setup() override;
-    void loop() override;
-    void update() override;
-    void dump_config() override;
+  void setup() override;
+  void update() override;
+  void dump_config() override;
 
  protected:
-    bool warmed_up_{false};
+  void publish_if_available(sensor::Sensor *target, bool available, float value);
+
+  MultiMultiGas sensors_;
+  bool warmed_up_{false};
 };
 
-} //namespace multi_gas
-} //namespace esphome
+}  // namespace multi_gas
+}  // namespace esphome

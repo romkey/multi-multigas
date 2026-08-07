@@ -5,9 +5,31 @@
 #include <DFRobot_MultiGasSensor.h>
 #include <Wire.h>
 
+// DFRobot gas sensors use I2C addresses in the range 0x60-0x7F.
+static constexpr uint8_t MULTI_MULTIGAS_I2C_ADDR_START = 0x60;
+static constexpr uint8_t MULTI_MULTIGAS_I2C_ADDR_END = 0x80;
+
 class MultiMultiGas {
  public:
+  MultiMultiGas();
+  ~MultiMultiGas();
+
+  // Scans 0x60-0x7F for DFRobot gas sensors. Returns true if at least one
+  // sensor was found and initialized.
   bool begin(TwoWire *wire = &Wire);
+
+  bool has_cl2() const { return _cl2.sensor != nullptr; }
+  bool has_co() const { return _co.sensor != nullptr; }
+  bool has_h2() const { return _h2.sensor != nullptr; }
+  bool has_h2s() const { return _h2s.sensor != nullptr; }
+  bool has_hcl() const { return _hcl.sensor != nullptr; }
+  bool has_hf() const { return _hf.sensor != nullptr; }
+  bool has_o2() const { return _o2.sensor != nullptr; }
+  bool has_o3() const { return _o3.sensor != nullptr; }
+  bool has_nh3() const { return _nh3.sensor != nullptr; }
+  bool has_no2() const { return _no2.sensor != nullptr; }
+  bool has_ph3() const { return _ph3.sensor != nullptr; }
+  bool has_so2() const { return _so2.sensor != nullptr; }
 
   float get_cl2();
   float get_co();
@@ -35,50 +57,48 @@ class MultiMultiGas {
   float get_ph3_raw();
   float get_so2_raw();
 
-  uint8_t get_cl2_i2c_addr() { return _cl2_addr; };
-  uint8_t get_co_i2c_addr() { return _co_addr; };
-  uint8_t get_h2_i2c_addr() { return _h2_addr; };
-  uint8_t get_h2s_i2c_addr() { return _h2s_addr; };
-  uint8_t get_hcl_i2c_addr() { return _hcl_addr; };
-  uint8_t get_hf_i2c_addr() { return _hf_addr; };
-  uint8_t get_o2_i2c_addr() { return _o2_addr; };
-  uint8_t get_o3_i2c_addr() { return _o3_addr; };
-  uint8_t get_nh3_i2c_addr() { return _nh3_addr; };
-  uint8_t get_no2_i2c_addr() { return _no2_addr; };
-  uint8_t get_ph3_i2c_addr() { return _ph3_addr; };
-  uint8_t get_so2_i2c_addr() { return _so2_addr; };
+  uint8_t get_cl2_i2c_addr() const { return _cl2.addr; }
+  uint8_t get_co_i2c_addr() const { return _co.addr; }
+  uint8_t get_h2_i2c_addr() const { return _h2.addr; }
+  uint8_t get_h2s_i2c_addr() const { return _h2s.addr; }
+  uint8_t get_hcl_i2c_addr() const { return _hcl.addr; }
+  uint8_t get_hf_i2c_addr() const { return _hf.addr; }
+  uint8_t get_o2_i2c_addr() const { return _o2.addr; }
+  uint8_t get_o3_i2c_addr() const { return _o3.addr; }
+  uint8_t get_nh3_i2c_addr() const { return _nh3.addr; }
+  uint8_t get_no2_i2c_addr() const { return _no2.addr; }
+  uint8_t get_ph3_i2c_addr() const { return _ph3.addr; }
+  uint8_t get_so2_i2c_addr() const { return _so2.addr; }
 
-  static void change_addrs(uint8_t target_start, uint8_t target_end, uint8_t new_range, TwoWire *wire = &Wire);
+  static void change_addrs(uint8_t target_start, uint8_t target_end, uint8_t group, TwoWire *wire = &Wire);
 
  private:
+  struct Slot {
+    uint8_t addr = 0;
+    DFRobot_GAS_I2C *sensor = nullptr;
+  };
+
   bool _setup_sensor(uint8_t address);
+  void _assign_slot(Slot &slot, DFRobot_GAS_I2C *gas, uint8_t address);
+  void _clear_slot(Slot &slot);
+  static float _read_ppm(const Slot &slot);
+  static float _read_raw(const Slot &slot);
+  bool _any_found() const;
+
   static void _assign_group(TwoWire *wire, uint8_t address, uint8_t group);
 
-  TwoWire *_wire;
+  TwoWire *_wire = nullptr;
 
-  uint8_t _cl2_addr;
-  DFRobot_GAS_I2C *_cl2_sensor;
-  uint8_t _co_addr;
-  DFRobot_GAS_I2C *_co_sensor;
-  uint8_t _h2_addr;
-  DFRobot_GAS_I2C *_h2_sensor;
-  uint8_t _h2s_addr;
-  DFRobot_GAS_I2C *_h2s_sensor;
-  uint8_t _hf_addr;
-  DFRobot_GAS_I2C *_hf_sensor;
-  uint8_t _hcl_addr;
-  DFRobot_GAS_I2C *_hcl_sensor;
-  uint8_t _o2_addr;
-  DFRobot_GAS_I2C *_o2_sensor;
-  uint8_t _o3_addr;
-  DFRobot_GAS_I2C *_o3_sensor;
-  uint8_t _nh3_addr;
-  DFRobot_GAS_I2C *_nh3_sensor;
-  uint8_t _no2_addr;
-  DFRobot_GAS_I2C *_no2_sensor;
-  uint8_t _ph3_addr;
-  DFRobot_GAS_I2C *_ph3_sensor;
-  uint8_t _so2_addr;
-  DFRobot_GAS_I2C *_so2_sensor;
+  Slot _cl2;
+  Slot _co;
+  Slot _h2;
+  Slot _h2s;
+  Slot _hf;
+  Slot _hcl;
+  Slot _o2;
+  Slot _o3;
+  Slot _nh3;
+  Slot _no2;
+  Slot _ph3;
+  Slot _so2;
 };
-
