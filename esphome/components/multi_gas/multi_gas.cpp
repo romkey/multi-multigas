@@ -7,12 +7,51 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
+#if defined(USE_ARDUINO)
 #include <Wire.h>
+#endif
 
 namespace esphome {
 namespace multi_gas {
 
 static const char *const TAG = "multi_gas";
+
+#if defined(USE_ESP32) && !defined(USE_ARDUINO)
+
+bool MultiGas::esphome_i2c_probe_(void *ctx, uint8_t address) {
+  auto *self = static_cast<MultiGas *>(ctx);
+  if (self->bus_ == nullptr) {
+    return false;
+  }
+  uint8_t byte = 0;
+  return self->bus_->read(address, &byte, 1) == i2c::ERROR_OK;
+}
+
+int MultiGas::esphome_i2c_write_(void *ctx, uint8_t address, const uint8_t *data, size_t len) {
+  auto *self = static_cast<MultiGas *>(ctx);
+  if (self->bus_ == nullptr) {
+    return -1;
+  }
+  return self->bus_->write(address, data, len) == i2c::ERROR_OK ? 0 : -1;
+}
+
+int MultiGas::esphome_i2c_write_read_(void *ctx, uint8_t address, const uint8_t *write_data, size_t write_len,
+                                      uint8_t *read_data, size_t read_len) {
+  auto *self = static_cast<MultiGas *>(ctx);
+  if (self->bus_ == nullptr) {
+    return -1;
+  }
+  return self->bus_->write_readv(address, write_data, write_len, read_data, read_len) == i2c::ERROR_OK ? 0 : -1;
+}
+
+void MultiGas::esphome_library_log_(void *ctx, const char *msg) {
+  auto *self = static_cast<MultiGas *>(ctx);
+  if (self->debug_) {
+    ESP_LOGI(TAG, "%s", msg);
+  }
+}
+
+#endif
 
 static uint8_t count_detected_sensors_(const MultiMultiGas &sensors) {
   uint8_t count = 0;
@@ -32,6 +71,9 @@ static uint8_t count_detected_sensors_(const MultiMultiGas &sensors) {
 }
 
 TwoWire *MultiGas::wire_for_bus_() {
+#if !defined(USE_ARDUINO)
+  return nullptr;
+#else
   if (this->bus_ == nullptr) {
     ESP_LOGW(TAG, "No I2C bus configured; using default Wire");
     return &Wire;
@@ -50,6 +92,7 @@ TwoWire *MultiGas::wire_for_bus_() {
   auto *internal = static_cast<i2c::InternalI2CBus *>(this->bus_);
   ESP_LOGCONFIG(TAG, "Using Wire for I2C port %d", internal->get_port());
   return &Wire;
+#endif
 #endif
 }
 
@@ -117,19 +160,41 @@ void MultiGas::publish_if_available(const char *name, sensor::Sensor *target, bo
 }
 
 void MultiGas::setup() {
+  this->sensors_.set_debug(this->debug_);
+  this->sensors_.set_log_callback(
+#if defined(USE_ESP32) && !defined(USE_ARDUINO)
+      esphome_library_log_,
+#else
+      nullptr,
+#endif
+      this);
+
   if (this->debug_) {
     ESP_LOGI(TAG, "Debug enabled");
     this->debug_probe_esphome_bus_();
   }
 
+  bool found = false;
+#if defined(USE_ESP32) && !defined(USE_ARDUINO)
+  ESP_LOGCONFIG(TAG, "Using ESPHome I2C bus (ESP-IDF)");
+  MultiMultiGasI2cOps ops{};
+  ops.ctx = this;
+  ops.probe = esphome_i2c_probe_;
+  ops.write = esphome_i2c_write_;
+  ops.write_read = esphome_i2c_write_read_;
+  found = this->sensors_.begin(&ops);
+#else
   TwoWire *wire = this->wire_for_bus_();
-  if (!this->sensors_.begin(wire)) {
+  found = this->sensors_.begin(wire);
+#endif
+
+  if (!found) {
     ESP_LOGE(TAG, "No DFRobot gas sensors found on configured I2C bus");
     if (this->debug_) {
-      ESP_LOGE(TAG, "If ESPHome i2c scan shows devices above but the library found none, check i2c_id and bus port");
+      ESP_LOGE(TAG, "If ESPHome i2c scan shows devices above but the library found none, check i2c_id and bus wiring");
       this->debug_log_summary_();
     }
-    this->mark_failed();
+    this->mark_failed(LOG_STR("No DFRobot gas sensors found on I2C bus"));
     return;
   }
 

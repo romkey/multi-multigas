@@ -40,6 +40,14 @@ class MultiGas : public PollingComponent, public i2c::I2CDevice {
   void debug_log_summary_();
   void publish_if_available(const char *name, sensor::Sensor *target, bool available, float value);
 
+#if defined(USE_ESP32) && !defined(USE_ARDUINO)
+  static bool esphome_i2c_probe_(void *ctx, uint8_t address);
+  static int esphome_i2c_write_(void *ctx, uint8_t address, const uint8_t *data, size_t len);
+  static int esphome_i2c_write_read_(void *ctx, uint8_t address, const uint8_t *write_data, size_t write_len,
+                                     uint8_t *read_data, size_t read_len);
+  static void esphome_library_log_(void *ctx, const char *msg);
+#endif
+
   MultiMultiGas sensors_;
   bool warmed_up_{false};
   bool debug_{false};

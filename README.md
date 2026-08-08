@@ -64,8 +64,7 @@ The external component lives at `esphome/components/multi_gas/`.
 esphome:
   name: my-sensor
   libraries:
-    - Wire
-    - multi-multigas=https://github.com/romkey/multi-multigas
+    - multi-multigas=https://github.com/romkey/multi-multigas#1.2.0
 
 external_components:
   - source: github://romkey/multi-multigas
@@ -97,7 +96,8 @@ Notes:
 - **`multi_gas:` is correct** — it is a top-level component, not under `sensor:`.
 - **`external_components` is required** — use `github://romkey/multi-multigas` (ESPHome finds components in `esphome/components/` automatically).
 - Use **`i2c_id:`** to select which I2C bus when you have more than one. With a single `i2c:` block, `i2c_id` is optional.
-- On **ESP32**, the DFRobot library uses Arduino `Wire`/`Wire1` matching the ESPHome bus port (0 → `Wire`, 1 → `Wire1`).
+- On **ESP32 with ESP-IDF** (the default ESPHome framework), the component talks to sensors through the ESPHome I2C bus directly — you do not need the `Wire` library.
+- On **ESP32 with Arduino** framework, the DFRobot library uses Arduino `Wire`/`Wire1` matching the ESPHome bus port (0 → `Wire`, 1 → `Wire1`).
 - Set `debug: true` and `logger level: DEBUG` to trace bus probes, detected gas types, warmup, and skipped publishes.
 - Configure only the gas sensors you want exposed; each is optional.
 - O2 is reported in **percent**; other gases use **ppm**.

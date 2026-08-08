@@ -9,6 +9,14 @@
 static constexpr uint8_t MULTI_MULTIGAS_I2C_ADDR_START = 0x60;
 static constexpr uint8_t MULTI_MULTIGAS_I2C_ADDR_END = 0x80;
 
+struct MultiMultiGasI2cOps {
+  void *ctx = nullptr;
+  bool (*probe)(void *ctx, uint8_t address) = nullptr;
+  int (*write)(void *ctx, uint8_t address, const uint8_t *data, size_t len) = nullptr;
+  int (*write_read)(void *ctx, uint8_t address, const uint8_t *write_data, size_t write_len, uint8_t *read_data,
+                    size_t read_len) = nullptr;
+};
+
 class MultiMultiGas {
  public:
   MultiMultiGas();
@@ -17,12 +25,15 @@ class MultiMultiGas {
   // Scans 0x60-0x7F for DFRobot gas sensors. Returns true if at least one
   // sensor was found and initialized.
   bool begin(TwoWire *wire = &Wire);
+  bool begin(const MultiMultiGasI2cOps *ops);
 
   using LogCallback = void (*)(void *ctx, const char *msg);
   void set_log_callback(LogCallback cb, void *ctx = nullptr);
   void set_debug(bool enable) { _debug = enable; }
   bool debug() const { return _debug; }
   uint8_t sensor_count() const;
+
+  TwoWire *wire() const { return _wire; }
 
   bool has_cl2() const { return _cl2.sensor != nullptr; }
   bool has_co() const { return _co.sensor != nullptr; }
@@ -81,11 +92,12 @@ class MultiMultiGas {
  private:
   struct Slot {
     uint8_t addr = 0;
-    DFRobot_GAS_I2C *sensor = nullptr;
+    DFRobot_GAS *sensor = nullptr;
   };
 
+  bool _begin_scan_();
   bool _setup_sensor(uint8_t address);
-  void _assign_slot(Slot &slot, DFRobot_GAS_I2C *gas, uint8_t address);
+  void _assign_slot(Slot &slot, DFRobot_GAS *gas, uint8_t address);
   void _clear_slot(Slot &slot);
   void _log(const char *fmt, ...) const;
   static float _read_ppm(const Slot &slot);
@@ -96,6 +108,7 @@ class MultiMultiGas {
   static void _assign_group(TwoWire *wire, uint8_t address, uint8_t group);
 
   TwoWire *_wire = nullptr;
+  MultiMultiGasI2cOps _i2c_ops_{};
   LogCallback _log_callback = nullptr;
   void *_log_callback_ctx = nullptr;
   bool _debug = false;

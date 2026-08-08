@@ -51,6 +51,7 @@ jobs:
       - name: Prepare ESPHome test config
         run: |
           sed "s|multi-multigas=\\.\\.|multi-multigas=file://${GITHUB_WORKSPACE}|" tests/test.yaml > tests/test-ci.yaml
+          sed "s|multi-multigas=\\.\\.|multi-multigas=file://${GITHUB_WORKSPACE}|" tests/test_esp_idf.yaml > tests/test-ci-esp-idf.yaml
 
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
@@ -63,5 +64,11 @@ jobs:
       - name: Validate ESPHome config
         run: esphome config tests/test-ci.yaml
 
-      - name: Compile ESPHome config
+      - name: Compile ESPHome config (Arduino)
         run: esphome compile tests/test-ci.yaml
+
+      - name: Validate ESPHome ESP-IDF config
+        run: esphome config tests/test-ci-esp-idf.yaml
+
+      - name: Compile ESPHome config (ESP-IDF)
+        run: esphome compile tests/test-ci-esp-idf.yaml

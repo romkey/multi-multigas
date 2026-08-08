@@ -1,0 +1,27 @@
+# ESP-IDF framework compile validation (matches ESP32-S3 ESPHome builds).
+
+external_components:
+  - source:
+      type: local
+      path: ../esphome/components
+
+esphome:
+  name: multi-multigas-test-idf
+  libraries:
+    - multi-multigas=..
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+
+multi_gas:
+  id: gas_sensors
+  debug: true
+  update_interval: 60s
+  co:
+    name: "Carbon Monoxide"

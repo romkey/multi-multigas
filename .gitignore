@@ -2,6 +2,7 @@
 .venv/
 .esphome/
 tests/test-ci.yaml
+tests/test-ci-esp-idf.yaml
 .pytest_cache/
 __pycache__/
 *.pyc

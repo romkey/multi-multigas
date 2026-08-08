@@ -3,12 +3,99 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 
 #ifdef MULTI_MULTIGAS_DEBUG
 #define MULTI_MULTIGAS_SERIAL_LOG(...) Serial.printf(__VA_ARGS__)
 #else
 #define MULTI_MULTIGAS_SERIAL_LOG(...)
 #endif
+
+namespace {
+
+class DFRobot_GAS_Transport : public DFRobot_GAS {
+ public:
+  DFRobot_GAS_Transport(const MultiMultiGasI2cOps *ops, uint8_t address) : ops_(ops), address_(address) {}
+
+  bool begin() override { return ops_->probe != nullptr && ops_->probe(ops_->ctx, address_); }
+
+  bool dataIsAvailable() override { return false; }
+
+ protected:
+  void writeData(uint8_t reg, void *data, uint8_t len) override {
+    if (ops_->write == nullptr) {
+      return;
+    }
+    uint8_t buffer[64];
+    buffer[0] = reg;
+    memcpy(buffer + 1, data, len);
+    ops_->write(ops_->ctx, address_, buffer, len + 1);
+  }
+
+  int16_t readData(uint8_t reg, uint8_t *data, uint8_t len) override {
+    if (ops_->write_read == nullptr) {
+      return -1;
+    }
+    if (ops_->write_read(ops_->ctx, address_, &reg, 1, data, len) != 0) {
+      return -1;
+    }
+    return len;
+  }
+
+ private:
+  const MultiMultiGasI2cOps *ops_;
+  uint8_t address_;
+};
+
+static bool wire_probe(void *ctx, uint8_t address) {
+  auto *self = static_cast<MultiMultiGas *>(ctx);
+  TwoWire *wire = self->wire();
+  if (wire == nullptr) {
+    return false;
+  }
+  wire->beginTransmission(address);
+  return wire->endTransmission() == 0;
+}
+
+static int wire_write(void *ctx, uint8_t address, const uint8_t *data, size_t len) {
+  auto *self = static_cast<MultiMultiGas *>(ctx);
+  TwoWire *wire = self->wire();
+  if (wire == nullptr) {
+    return -1;
+  }
+  wire->beginTransmission(address);
+  for (size_t i = 0; i < len; i++) {
+    wire->write(data[i]);
+  }
+  return wire->endTransmission() == 0 ? 0 : -1;
+}
+
+static int wire_write_read(void *ctx, uint8_t address, const uint8_t *write_data, size_t write_len, uint8_t *read_data,
+                           size_t read_len) {
+  auto *self = static_cast<MultiMultiGas *>(ctx);
+  TwoWire *wire = self->wire();
+  if (wire == nullptr) {
+    return -1;
+  }
+  wire->beginTransmission(address);
+  for (size_t i = 0; i < write_len; i++) {
+    wire->write(write_data[i]);
+  }
+  if (wire->endTransmission() != 0) {
+    return -1;
+  }
+  if (read_len == 0) {
+    return 0;
+  }
+  wire->requestFrom(address, static_cast<uint8_t>(read_len));
+  size_t i = 0;
+  while (wire->available() && i < read_len) {
+    read_data[i++] = wire->read();
+  }
+  return i == read_len ? 0 : -1;
+}
+
+}  // namespace
 
 void MultiMultiGas::_log(const char *fmt, ...) const {
   char buffer[192];
@@ -72,7 +159,7 @@ void MultiMultiGas::_clear_slot(Slot &slot) {
   slot.addr = 0;
 }
 
-void MultiMultiGas::_assign_slot(Slot &slot, DFRobot_GAS_I2C *gas, uint8_t address) {
+void MultiMultiGas::_assign_slot(Slot &slot, DFRobot_GAS *gas, uint8_t address) {
   if (slot.sensor != nullptr) {
     _log("replacing duplicate sensor at 0x%02x", slot.addr);
     _clear_slot(slot);
@@ -101,17 +188,31 @@ bool MultiMultiGas::_any_found() const {
 
 bool MultiMultiGas::begin(TwoWire *wire) {
   _wire = wire;
+  MultiMultiGasI2cOps ops{};
+  ops.ctx = this;
+  ops.probe = wire_probe;
+  ops.write = wire_write;
+  ops.write_read = wire_write_read;
+  return begin(&ops);
+}
 
+bool MultiMultiGas::begin(const MultiMultiGasI2cOps *ops) {
+  if (ops == nullptr || ops->probe == nullptr || ops->write == nullptr || ops->write_read == nullptr) {
+    return false;
+  }
+  _i2c_ops_ = *ops;
+  return _begin_scan_();
+}
+
+bool MultiMultiGas::_begin_scan_() {
   _log("scanning I2C 0x%02X-0x%02X", MULTI_MULTIGAS_I2C_ADDR_START, MULTI_MULTIGAS_I2C_ADDR_END - 1);
 
   for (uint8_t address = MULTI_MULTIGAS_I2C_ADDR_START; address < MULTI_MULTIGAS_I2C_ADDR_END; address++) {
-    wire->beginTransmission(address);
-    uint8_t err = wire->endTransmission();
-    if (err == 0) {
-      _log("Wire probe 0x%02X: ACK", address);
+    if (_i2c_ops_.probe(_i2c_ops_.ctx, address)) {
+      _log("I2C probe 0x%02X: ACK", address);
       _setup_sensor(address);
     } else if (this->_debug) {
-      _log("Wire probe 0x%02X: no response (err=%u)", address, err);
+      _log("I2C probe 0x%02X: no response", address);
     }
   }
 
@@ -120,7 +221,7 @@ bool MultiMultiGas::begin(TwoWire *wire) {
 }
 
 bool MultiMultiGas::_setup_sensor(uint8_t address) {
-  DFRobot_GAS_I2C *gas = new DFRobot_GAS_I2C(_wire, address);
+  DFRobot_GAS *gas = new DFRobot_GAS_Transport(&_i2c_ops_, address);
 
   _log("initializing DFRobot sensor at 0x%02X", address);
 
