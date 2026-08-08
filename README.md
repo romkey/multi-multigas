@@ -72,15 +72,17 @@ external_components:
     components: [multi_gas]
 
 i2c:
-  sda: GPIO21
-  scl: GPIO22
+  - id: gas_bus
+    sda: GPIO21
+    scl: GPIO22
+  - id: other_bus
+    sda: GPIO18
+    scl: GPIO19
 
 multi_gas:
   id: gases
+  i2c_id: gas_bus
   update_interval: 60s
-  # On ESP32, set these to match your i2c: pins so Arduino Wire uses the same bus:
-  sda_pin: GPIO21
-  scl_pin: GPIO22
   debug: true
   co:
     name: "Carbon Monoxide"
@@ -94,8 +96,8 @@ Notes:
 
 - **`multi_gas:` is correct** — it is a top-level component, not under `sensor:`.
 - **`external_components` is required** — use `github://romkey/multi-multigas` (ESPHome finds components in `esphome/components/` automatically).
-- An `i2c:` block is **required** — the component scans the bus for DFRobot sensors.
-- On **ESP32**, ESPHome's I2C scan uses the ESP-IDF driver, but the DFRobot library uses Arduino `Wire`. Set `sda_pin` and `scl_pin` to match your `i2c:` block so both see the same bus.
+- Use **`i2c_id:`** to select which I2C bus when you have more than one. With a single `i2c:` block, `i2c_id` is optional.
+- On **ESP32**, the DFRobot library uses Arduino `Wire`/`Wire1` matching the ESPHome bus port (0 → `Wire`, 1 → `Wire1`).
 - Set `debug: true` and `logger level: DEBUG` to trace bus probes, detected gas types, warmup, and skipped publishes.
 - Configure only the gas sensors you want exposed; each is optional.
 - O2 is reported in **percent**; other gases use **ppm**.

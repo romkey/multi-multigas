@@ -1,5 +1,6 @@
 #include "multi_gas.h"
 
+#include "esphome/components/i2c/i2c_bus.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
@@ -13,6 +14,29 @@ static const char *const TAG = "multi_gas";
 void MultiGas::log_bridge_(void *ctx, const char *msg) {
   auto *self = static_cast<MultiGas *>(ctx);
   ESP_LOGI(TAG, "[lib] %s", msg);
+}
+
+TwoWire *MultiGas::wire_for_bus_() {
+  if (this->bus_ == nullptr) {
+    ESP_LOGW(TAG, "No I2C bus configured; using default Wire");
+    return &Wire;
+  }
+
+  auto *internal = dynamic_cast<i2c::InternalI2CBus *>(this->bus_);
+  if (internal == nullptr) {
+    ESP_LOGD(TAG, "Using default Wire for DFRobot library");
+    return &Wire;
+  }
+
+#if defined(USE_ESP32) && defined(USE_ARDUINO)
+  if (internal->get_port() == 1) {
+    ESP_LOGCONFIG(TAG, "Using Wire1 for I2C port 1");
+    return &Wire1;
+  }
+#endif
+
+  ESP_LOGCONFIG(TAG, "Using Wire for I2C port %d", internal->get_port());
+  return &Wire;
 }
 
 void MultiGas::debug_probe_esphome_bus_() {
@@ -87,18 +111,11 @@ void MultiGas::setup() {
     this->debug_probe_esphome_bus_();
   }
 
-  if (this->sda_pin_ >= 0 && this->scl_pin_ >= 0) {
-    ESP_LOGI(TAG, "Starting Arduino Wire on SDA=%d SCL=%d", this->sda_pin_, this->scl_pin_);
-    Wire.begin(this->sda_pin_, this->scl_pin_);
-  } else {
-    ESP_LOGW(TAG, "Starting Arduino Wire with default pins; set sda_pin/scl_pin to match your i2c: block on ESP32");
-    Wire.begin();
-  }
-
-  if (!this->sensors_.begin(&Wire)) {
-    ESP_LOGE(TAG, "No DFRobot gas sensors found via Arduino Wire scan");
+  TwoWire *wire = this->wire_for_bus_();
+  if (!this->sensors_.begin(wire)) {
+    ESP_LOGE(TAG, "No DFRobot gas sensors found on configured I2C bus");
     if (this->debug_) {
-      ESP_LOGE(TAG, "If ESPHome i2c scan shows devices above but Wire scan found none, the buses differ");
+      ESP_LOGE(TAG, "If ESPHome i2c scan shows devices above but the library found none, check i2c_id and bus port");
       this->debug_log_summary_();
     }
     this->mark_failed();
@@ -143,9 +160,6 @@ void MultiGas::dump_config() {
   ESP_LOGCONFIG(TAG, "MultiGas:");
   LOG_I2C_DEVICE(this);
   ESP_LOGCONFIG(TAG, "  Debug: %s", YESNO(this->debug_));
-  if (this->sda_pin_ >= 0 && this->scl_pin_ >= 0) {
-    ESP_LOGCONFIG(TAG, "  Wire pins: SDA=%d SCL=%d", this->sda_pin_, this->scl_pin_);
-  }
   ESP_LOGCONFIG(TAG, "  Warmup: 3 minutes");
 
   auto log_sensor = [&](const char *name, bool found, uint8_t addr) {
