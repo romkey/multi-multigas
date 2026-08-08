@@ -206,15 +206,8 @@ bool MultiMultiGas::_begin_scan_() {
   for (uint8_t address = MULTI_MULTIGAS_I2C_ADDR_START; address < MULTI_MULTIGAS_I2C_ADDR_END; address++) {
     if (_i2c_ops_.probe(_i2c_ops_.ctx, address)) {
       _log("I2C probe 0x%02X: ACK", address);
-      switch (_setup_sensor(address)) {
-        case SETUP_REGISTERED:
-          break;
-        case SETUP_DUPLICATE:
-          _add_duplicate(address);
-          break;
-        case SETUP_UNIDENTIFIED:
-          _add_unidentified(address);
-          break;
+      if (_setup_sensor(address) == SETUP_UNIDENTIFIED) {
+        _add_unidentified(address);
       }
     } else if (this->_debug) {
       _log("I2C probe 0x%02X: no response", address);
@@ -244,14 +237,24 @@ uint8_t MultiMultiGas::duplicate_addr(uint8_t index) const {
   if (index >= _duplicate_count) {
     return 0;
   }
-  return _duplicate[index];
+  return _duplicate[index].addr;
 }
 
-void MultiMultiGas::_add_duplicate(uint8_t address) {
+const char *MultiMultiGas::duplicate_gas(uint8_t index) const {
+  if (index >= _duplicate_count) {
+    return "";
+  }
+  return _duplicate[index].gas;
+}
+
+void MultiMultiGas::_add_duplicate(uint8_t address, const char *gas) {
   if (_duplicate_count >= MAX_TRACKED) {
     return;
   }
-  _duplicate[_duplicate_count++] = address;
+  Duplicate &entry = _duplicate[_duplicate_count++];
+  entry.addr = address;
+  strncpy(entry.gas, gas, sizeof(entry.gas) - 1);
+  entry.gas[sizeof(entry.gas) - 1] = '\0';
 }
 
 void MultiMultiGas::_drop_unidentified(uint8_t index) {
@@ -274,8 +277,6 @@ uint8_t MultiMultiGas::retry_unidentified() {
     }
     if (result == SETUP_REGISTERED) {
       registered++;
-    } else {
-      _add_duplicate(_unidentified[i]);
     }
     _drop_unidentified(i);
   }
@@ -332,6 +333,7 @@ MultiMultiGas::SetupResult MultiMultiGas::_setup_sensor(uint8_t address) {
 
   if (slot->sensor != nullptr) {
     _log("0x%02X reports %s, already provided by 0x%02X; keeping the first", address, gas_type.c_str(), slot->addr);
+    _add_duplicate(address, gas_type.c_str());
     delete gas;
     return SETUP_DUPLICATE;
   }

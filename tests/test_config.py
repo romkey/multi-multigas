@@ -48,25 +48,46 @@ def test_all_gas_sensors_are_optional(multi_gas_module):
     assert config["id"] is not None
 
 
-def test_detected_gases_is_optional(multi_gas_module):
+@pytest.mark.parametrize(
+    "key", ["detected_gas_sensors", "duplicate_gas_sensors"]
+)
+def test_text_sensor_is_optional(multi_gas_module, key):
     config = multi_gas_module.CONFIG_SCHEMA(
         {
             "id": "gas_sensors",
             "i2c_id": "bus",
         }
     )
-    assert "detected_gases" not in config
+    assert key not in config
 
 
-def test_detected_gases_accepts_text_sensor(multi_gas_module):
+@pytest.mark.parametrize(
+    ("key", "name"),
+    [
+        ("detected_gas_sensors", "Detected Gas Sensors"),
+        ("duplicate_gas_sensors", "Duplicate Gas Sensors"),
+    ],
+)
+def test_text_sensor_accepts_schema(multi_gas_module, key, name):
     config = multi_gas_module.CONFIG_SCHEMA(
         {
             "id": "gas_sensors",
             "i2c_id": "bus",
-            "detected_gases": {"name": "Detected Gases"},
+            key: {"name": name},
         }
     )
-    assert config["detected_gases"]["name"] == "Detected Gases"
+    assert config[key]["name"] == name
+
+
+def test_old_detected_gases_key_rejected(multi_gas_module):
+    with pytest.raises(Exception):
+        multi_gas_module.CONFIG_SCHEMA(
+            {
+                "id": "gas_sensors",
+                "i2c_id": "bus",
+                "detected_gases": {"name": "Detected Gases"},
+            }
+        )
 
 
 def test_unknown_gas_key_rejected(multi_gas_module):

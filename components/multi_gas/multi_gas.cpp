@@ -4,6 +4,10 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+
 namespace esphome {
 namespace multi_gas {
 
@@ -66,9 +70,9 @@ void MultiGas::log_unclaimed_() {
              this->sensors_.unidentified_addr(i));
   }
   for (uint8_t i = 0; i < this->sensors_.duplicate_count(); i++) {
-    ESP_LOGW(TAG, "0x%02X reports a gas type another sensor already provides and cannot be read; only one sensor per "
+    ESP_LOGW(TAG, "0x%02X reports %s, which another sensor already provides, and cannot be read; only one sensor per "
                   "gas type is supported",
-             this->sensors_.duplicate_addr(i));
+             this->sensors_.duplicate_addr(i), this->sensors_.duplicate_gas(i));
   }
 }
 
@@ -121,6 +125,52 @@ std::string MultiGas::detected_gas_list_() const {
   return list;
 }
 
+std::string MultiGas::duplicate_gas_list_() const {
+  std::string list;
+  if (this->sensors_.duplicate_count() == 0) {
+    return list;
+  }
+
+  auto append = [&](const char *name, uint8_t address) {
+    char entry[16];
+    snprintf(entry, sizeof(entry), "%s (0x%02X)", name, address);
+    if (!list.empty()) {
+      list += ", ";
+    }
+    list += entry;
+  };
+
+  // A gas type only appears here if it was seen more than once, and then every
+  // instance is listed, starting with the one that is actually being read.
+  auto append_gas = [&](const char *name, bool detected, uint8_t address) {
+    bool first = true;
+    for (uint8_t i = 0; i < this->sensors_.duplicate_count(); i++) {
+      if (strcmp(this->sensors_.duplicate_gas(i), name) != 0) {
+        continue;
+      }
+      if (first && detected) {
+        append(name, address);
+      }
+      first = false;
+      append(name, this->sensors_.duplicate_addr(i));
+    }
+  };
+
+  append_gas("CL2", this->sensors_.has_cl2(), this->sensors_.get_cl2_i2c_addr());
+  append_gas("CO", this->sensors_.has_co(), this->sensors_.get_co_i2c_addr());
+  append_gas("H2", this->sensors_.has_h2(), this->sensors_.get_h2_i2c_addr());
+  append_gas("H2S", this->sensors_.has_h2s(), this->sensors_.get_h2s_i2c_addr());
+  append_gas("HF", this->sensors_.has_hf(), this->sensors_.get_hf_i2c_addr());
+  append_gas("HCL", this->sensors_.has_hcl(), this->sensors_.get_hcl_i2c_addr());
+  append_gas("O2", this->sensors_.has_o2(), this->sensors_.get_o2_i2c_addr());
+  append_gas("O3", this->sensors_.has_o3(), this->sensors_.get_o3_i2c_addr());
+  append_gas("NH3", this->sensors_.has_nh3(), this->sensors_.get_nh3_i2c_addr());
+  append_gas("NO2", this->sensors_.has_no2(), this->sensors_.get_no2_i2c_addr());
+  append_gas("PH3", this->sensors_.has_ph3(), this->sensors_.get_ph3_i2c_addr());
+  append_gas("SO2", this->sensors_.has_so2(), this->sensors_.get_so2_i2c_addr());
+  return list;
+}
+
 void MultiGas::publish_if_available(const char *name, sensor::Sensor *target, bool available, float value) {
   if (target == nullptr) {
     return;
@@ -143,12 +193,15 @@ void MultiGas::publish_if_available(const char *name, sensor::Sensor *target, bo
   target->publish_state(value);
 }
 
-void MultiGas::publish_detected_gases_() {
+void MultiGas::publish_gas_lists_() {
 #ifdef USE_TEXT_SENSOR
-  // The detected set is known as soon as the bus scan completes, so it does not
-  // wait for the warmup that gates the concentration readings.
-  if (this->detected_gases_text_sensor_ != nullptr) {
-    this->detected_gases_text_sensor_->publish_state(this->detected_gas_list_());
+  // Both lists are known as soon as the bus scan completes, so they do not wait
+  // for the warmup that gates the concentration readings.
+  if (this->detected_gas_sensors_text_sensor_ != nullptr) {
+    this->detected_gas_sensors_text_sensor_->publish_state(this->detected_gas_list_());
+  }
+  if (this->duplicate_gas_sensors_text_sensor_ != nullptr) {
+    this->duplicate_gas_sensors_text_sensor_->publish_state(this->duplicate_gas_list_());
   }
 #endif
 }
@@ -160,7 +213,7 @@ void MultiGas::retry_unidentified_() {
   uint8_t registered = this->sensors_.retry_unidentified();
   if (registered > 0) {
     ESP_LOGI(TAG, "Identified %u more sensor(s) on retry, %u total", registered, this->sensors_.sensor_count());
-    this->publish_detected_gases_();
+    this->publish_gas_lists_();
   }
   this->log_unclaimed_();
 }
@@ -201,7 +254,7 @@ void MultiGas::setup() {
 
   ESP_LOGI(TAG, "Found %u sensor(s); warmup 3 minutes before publishing", this->sensors_.sensor_count());
 
-  this->publish_detected_gases_();
+  this->publish_gas_lists_();
 
   this->set_timeout("warmup", 3 * 60 * 1000, [this]() {
     this->warmed_up_ = true;
@@ -262,7 +315,8 @@ void MultiGas::dump_config() {
     ESP_LOGCONFIG(TAG, "  0x%02X: responds but gas type unknown", this->sensors_.unidentified_addr(i));
   }
   for (uint8_t i = 0; i < this->sensors_.duplicate_count(); i++) {
-    ESP_LOGCONFIG(TAG, "  0x%02X: duplicate gas type, not read", this->sensors_.duplicate_addr(i));
+    ESP_LOGCONFIG(TAG, "  0x%02X: duplicate %s, not read", this->sensors_.duplicate_addr(i),
+                  this->sensors_.duplicate_gas(i));
   }
 }
 

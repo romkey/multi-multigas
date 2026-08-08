@@ -28,7 +28,9 @@ multi_gas:
   id: gas_sensors
   debug: true
   update_interval: 60s
-  detected_gases:
-    name: "Detected Gases"
+  detected_gas_sensors:
+    name: "Detected Gas Sensors"
+  duplicate_gas_sensors:
+    name: "Duplicate Gas Sensors"
   co:
     name: "Carbon Monoxide"

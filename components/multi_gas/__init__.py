@@ -16,7 +16,8 @@ multi_gas_ns = cg.esphome_ns.namespace("multi_gas")
 MultiGas = multi_gas_ns.class_("MultiGas", cg.PollingComponent, i2c.I2CDevice)
 
 CONF_DEBUG = "debug"
-CONF_DETECTED_GASES = "detected_gases"
+CONF_DETECTED_GAS_SENSORS = "detected_gas_sensors"
+CONF_DUPLICATE_GAS_SENSORS = "duplicate_gas_sensors"
 
 CONF_CL2 = "cl2"
 CONF_CO = "co"
@@ -59,7 +60,9 @@ O2_SENSOR_SCHEMA = sensor.sensor_schema(
     accuracy_decimals=2,
 )
 
-DETECTED_GASES_SCHEMA = text_sensor.text_sensor_schema()
+TEXT_SENSORS = [CONF_DETECTED_GAS_SENSORS, CONF_DUPLICATE_GAS_SENSORS]
+
+TEXT_SENSOR_SCHEMA = text_sensor.text_sensor_schema()
 
 CONFIG_SCHEMA = (
     cv.Schema(
@@ -67,9 +70,9 @@ CONFIG_SCHEMA = (
             cv.GenerateID(): cv.declare_id(MultiGas),
             cv.Optional(CONF_DEBUG, default=False): cv.boolean,
             cv.Optional(CONF_O2): O2_SENSOR_SCHEMA,
-            cv.Optional(CONF_DETECTED_GASES): DETECTED_GASES_SCHEMA,
         }
     )
+    .extend({cv.Optional(name): TEXT_SENSOR_SCHEMA for name in TEXT_SENSORS})
     .extend({cv.Optional(name): PPM_SENSOR_SCHEMA for name in PPM_SENSORS})
     .extend(cv.polling_component_schema("60s"))
     .extend(i2c.i2c_device_schema(0x60))
@@ -87,6 +90,7 @@ async def to_code(config):
             sens = await sensor.new_sensor(config[sensor_type])
             cg.add(getattr(var, f"set_{sensor_type}_sensor")(sens))
 
-    if CONF_DETECTED_GASES in config:
-        text_sens = await text_sensor.new_text_sensor(config[CONF_DETECTED_GASES])
-        cg.add(var.set_detected_gases_text_sensor(text_sens))
+    for text_sensor_type in TEXT_SENSORS:
+        if text_sensor_type in config:
+            text_sens = await text_sensor.new_text_sensor(config[text_sensor_type])
+            cg.add(getattr(var, f"set_{text_sensor_type}_text_sensor")(text_sens))

@@ -32,7 +32,8 @@ class MultiGas : public PollingComponent, public i2c::I2CDevice {
 #endif
 
 #ifdef USE_TEXT_SENSOR
-  SUB_TEXT_SENSOR(detected_gases)
+  SUB_TEXT_SENSOR(detected_gas_sensors)
+  SUB_TEXT_SENSOR(duplicate_gas_sensors)
 #endif
 
   float get_setup_priority() const override { return setup_priority::DATA; }
@@ -46,9 +47,10 @@ class MultiGas : public PollingComponent, public i2c::I2CDevice {
   void debug_log_summary_();
   void log_unclaimed_();
   void retry_unidentified_();
-  void publish_detected_gases_();
+  void publish_gas_lists_();
   void publish_if_available(const char *name, sensor::Sensor *target, bool available, float value);
   std::string detected_gas_list_() const;
+  std::string duplicate_gas_list_() const;
 
   // Drive the sensors over ESPHome's I2C bus so the component works the same
   // on Arduino and ESP-IDF, and always uses the bus selected by i2c_id.

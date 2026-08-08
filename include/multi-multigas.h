@@ -45,10 +45,11 @@ class MultiMultiGas {
   // sensors were newly registered.
   uint8_t retry_unidentified();
 
-  // Addresses whose gas type is already provided by a lower address. There is
-  // one slot per gas type, so these cannot be read; the first one found wins.
+  // Sensors whose gas type is already provided by a lower address. There is one
+  // slot per gas type, so these cannot be read; the first one found wins.
   uint8_t duplicate_count() const { return _duplicate_count; }
   uint8_t duplicate_addr(uint8_t index) const;
+  const char *duplicate_gas(uint8_t index) const;
 
   TwoWire *wire() const { return _wire; }
 
@@ -131,7 +132,7 @@ class MultiMultiGas {
   uint8_t _count_sensors() const;
   void _add_unidentified(uint8_t address);
   void _drop_unidentified(uint8_t index);
-  void _add_duplicate(uint8_t address);
+  void _add_duplicate(uint8_t address, const char *gas);
 
   static void _assign_group(TwoWire *wire, uint8_t address, uint8_t group);
 
@@ -140,9 +141,15 @@ class MultiMultiGas {
   LogCallback _log_callback = nullptr;
   void *_log_callback_ctx = nullptr;
   bool _debug = false;
+  // Longest supported gas type is 3 characters ("H2S", "NO2", ...).
+  struct Duplicate {
+    uint8_t addr = 0;
+    char gas[4] = {};
+  };
+
   uint8_t _unidentified[MAX_TRACKED] = {};
   uint8_t _unidentified_count = 0;
-  uint8_t _duplicate[MAX_TRACKED] = {};
+  Duplicate _duplicate[MAX_TRACKED] = {};
   uint8_t _duplicate_count = 0;
 
   Slot _cl2;

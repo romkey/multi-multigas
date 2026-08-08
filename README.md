@@ -78,7 +78,7 @@ esphome:
   name: my-sensor
   libraries:
     - Wire
-    - multi-multigas=https://github.com/romkey/multi-multigas#1.4.0
+    - multi-multigas=https://github.com/romkey/multi-multigas#2.0.0
 
 external_components:
   - source: github://romkey/multi-multigas
@@ -102,8 +102,10 @@ multi_gas:
   i2c_id: gas_bus
   update_interval: 60s
   debug: true
-  detected_gases:
-    name: "Detected Gases"
+  detected_gas_sensors:
+    name: "Detected Gas Sensors"
+  duplicate_gas_sensors:
+    name: "Duplicate Gas Sensors"
   co:
     name: "Carbon Monoxide"
   h2s:
@@ -119,10 +121,11 @@ Notes:
 - Use **`i2c_id:`** to select which I2C bus when you have more than one. With a single `i2c:` block, `i2c_id` is optional.
 - Use `framework: type: arduino`. The DFRobot dependency needs `Arduino.h` and `Wire.h`, so keep `Wire` in `libraries:` — but note the component itself performs all I2C through the ESPHome bus selected by `i2c_id`, not through `Wire`.
 - Set `logger: level: DEBUG` to see the per-address scan, detected gas types, warmup, and skipped publishes. Adding `debug: true` additionally probes the whole 0x08–0x77 range at startup so its output can be compared directly against the `i2c:` component's own `scan: true` results.
-- An address that acknowledges on the bus but does not report a supported gas type is logged as a warning (regardless of `debug:`) and retried on every update. Sensors that are still booting behave this way, so they get picked up a minute or two later and the `detected_gases` list is republished.
+- An address that acknowledges on the bus but does not report a supported gas type is logged as a warning (regardless of `debug:`) and retried on every update. Sensors that are still booting behave this way, so they get picked up a minute or two later and the text sensors are republished.
 - Only one sensor per gas type can be read, since each gas has a single slot. If two sensors report the same type the lower address wins and the other is logged as a warning rather than silently ignored.
 - Configure only the gas sensors you want exposed; each is optional.
-- `detected_gases` is an optional text sensor whose state is the comma-separated list of gas types found on the bus, for example `CO, H2S, O2`. It is published as soon as the scan finishes rather than after the warmup, and lists everything detected even if you did not configure a sensor for it.
+- `detected_gas_sensors` is an optional text sensor whose state is the comma-separated list of gas types found on the bus, for example `CO, H2S, O2`. It is published as soon as the scan finishes rather than after the warmup, and lists everything detected even if you did not configure a sensor for it.
+- `duplicate_gas_sensors` is an optional text sensor listing every gas type that was found more than once, with the I2C address of each instance, for example `CO (0x60), CO (0x64)`. The first address in each run is the one being read. It is empty when there are no duplicates.
 - O2 is reported in **percent**; other gases use **ppm**.
 - Sensors need about **3 minutes** to warm up before readings are published.
 - If nothing at all answers in 0x60–0x7F at startup, the component marks itself as failed. If something answers but cannot be identified, the component stays up and keeps retrying.
@@ -139,7 +142,7 @@ Notes:
 | `get_co_i2c_addr()` etc. | I2C address of the detected sensor. |
 | `unidentified_count()` / `unidentified_addr(i)` | Addresses that acknowledged but reported no supported gas type. |
 | `retry_unidentified()` | Re-run identification on those addresses. Returns how many sensors were newly registered. |
-| `duplicate_count()` / `duplicate_addr(i)` | Addresses whose gas type is already provided by a lower address. |
+| `duplicate_count()` / `duplicate_addr(i)` / `duplicate_gas(i)` | Sensors whose gas type is already provided by a lower address. |
 | `change_addrs(start, end, group, wire)` | Change the address group for sensors in a range. |
 
 ## License
