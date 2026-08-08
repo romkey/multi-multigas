@@ -200,12 +200,13 @@ float MultiMultiGas::get_ph3_raw() { return _read_raw(_ph3); }
 float MultiMultiGas::get_so2_raw() { return _read_raw(_so2); }
 
 void MultiMultiGas::change_addrs(uint8_t target_start, uint8_t target_end, uint8_t group, TwoWire *wire) {
-  _log("change_addrs 0x%02X-0x%02X to group %u", target_start, target_end - 1, group);
+  MULTI_MULTIGAS_SERIAL_LOG("multi-multigas: change_addrs 0x%02X-0x%02X to group %u\n", target_start,
+                            target_end - 1, group);
 
   for (uint8_t address = target_start; address < target_end; address++) {
     wire->beginTransmission(address);
     if (wire->endTransmission() == 0) {
-      _log("reassigning 0x%02X", address);
+      MULTI_MULTIGAS_SERIAL_LOG("multi-multigas: reassigning 0x%02X\n", address);
       _assign_group(wire, address, group);
     }
   }
@@ -214,7 +215,7 @@ void MultiMultiGas::change_addrs(uint8_t target_start, uint8_t target_end, uint8
 void MultiMultiGas::_assign_group(TwoWire *wire, uint8_t address, uint8_t group) {
   DFRobot_GAS_I2C gas(wire, address);
   if (!gas.begin()) {
-    _log("change_addrs begin() failed at 0x%02X", address);
+    MULTI_MULTIGAS_SERIAL_LOG("multi-multigas: change_addrs begin() failed at 0x%02X\n", address);
     return;
   }
   gas.changeI2cAddrGroup(group);
