@@ -11,7 +11,9 @@ namespace multi_gas {
 
 class MultiGas : public PollingComponent, public i2c::I2CDevice {
  public:
-  MultiGas() = default;
+  void set_debug(bool debug) { this->debug_ = debug; }
+  void set_sda_pin(int8_t sda_pin) { this->sda_pin_ = sda_pin; }
+  void set_scl_pin(int8_t scl_pin) { this->scl_pin_ = scl_pin; }
 
 #ifdef USE_SENSOR
   SUB_SENSOR(cl2)
@@ -28,15 +30,23 @@ class MultiGas : public PollingComponent, public i2c::I2CDevice {
   SUB_SENSOR(so2)
 #endif
 
+  float get_setup_priority() const override { return setup_priority::DATA; }
+
   void setup() override;
   void update() override;
   void dump_config() override;
 
  protected:
-  void publish_if_available(sensor::Sensor *target, bool available, float value);
+  static void log_bridge_(void *ctx, const char *msg);
+  void debug_probe_esphome_bus_();
+  void debug_log_summary_();
+  void publish_if_available(const char *name, sensor::Sensor *target, bool available, float value);
 
   MultiMultiGas sensors_;
   bool warmed_up_{false};
+  bool debug_{false};
+  int8_t sda_pin_{-1};
+  int8_t scl_pin_{-1};
 };
 
 }  // namespace multi_gas

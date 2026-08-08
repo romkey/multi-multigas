@@ -18,6 +18,12 @@ class MultiMultiGas {
   // sensor was found and initialized.
   bool begin(TwoWire *wire = &Wire);
 
+  using LogCallback = void (*)(void *ctx, const char *msg);
+  void set_log_callback(LogCallback cb, void *ctx = nullptr);
+  void set_debug(bool enable) { _debug = enable; }
+  bool debug() const { return _debug; }
+  uint8_t sensor_count() const;
+
   bool has_cl2() const { return _cl2.sensor != nullptr; }
   bool has_co() const { return _co.sensor != nullptr; }
   bool has_h2() const { return _h2.sensor != nullptr; }
@@ -81,13 +87,18 @@ class MultiMultiGas {
   bool _setup_sensor(uint8_t address);
   void _assign_slot(Slot &slot, DFRobot_GAS_I2C *gas, uint8_t address);
   void _clear_slot(Slot &slot);
+  void _log(const char *fmt, ...) const;
   static float _read_ppm(const Slot &slot);
   static float _read_raw(const Slot &slot);
   bool _any_found() const;
+  uint8_t _count_sensors() const;
 
   static void _assign_group(TwoWire *wire, uint8_t address, uint8_t group);
 
   TwoWire *_wire = nullptr;
+  LogCallback _log_callback = nullptr;
+  void *_log_callback_ctx = nullptr;
+  bool _debug = false;
 
   Slot _cl2;
   Slot _co;

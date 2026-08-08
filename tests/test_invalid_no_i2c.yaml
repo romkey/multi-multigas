@@ -3,7 +3,7 @@
 external_components:
   - source:
       type: local
-      path: ../esphome/my_components
+      path: ../esphome/components
 
 esphome:
   name: multi-multigas-invalid

@@ -1,5 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
+from esphome import pins
 from esphome.components import i2c, sensor
 from esphome.const import (
     CONF_ID,
@@ -14,6 +15,10 @@ AUTO_LOAD = ["sensor"]
 
 multi_gas_ns = cg.esphome_ns.namespace("multi_gas")
 MultiGas = multi_gas_ns.class_("MultiGas", cg.PollingComponent)
+
+CONF_DEBUG = "debug"
+CONF_SDA_PIN = "sda_pin"
+CONF_SCL_PIN = "scl_pin"
 
 CONF_CL2 = "cl2"
 CONF_CO = "co"
@@ -60,6 +65,9 @@ CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(MultiGas),
+            cv.Optional(CONF_DEBUG, default=False): cv.boolean,
+            cv.Optional(CONF_SDA_PIN): pins.internal_gpio_pin_number,
+            cv.Optional(CONF_SCL_PIN): pins.internal_gpio_pin_number,
             cv.Optional(CONF_O2): O2_SENSOR_SCHEMA,
         }
     )
@@ -72,6 +80,12 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
+
+    cg.add(var.set_debug(config[CONF_DEBUG]))
+    if CONF_SDA_PIN in config:
+        cg.add(var.set_sda_pin(config[CONF_SDA_PIN]))
+    if CONF_SCL_PIN in config:
+        cg.add(var.set_scl_pin(config[CONF_SCL_PIN]))
 
     for sensor_type in SENSORS:
         if sensor_type in config:
