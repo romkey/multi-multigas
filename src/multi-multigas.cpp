@@ -199,17 +199,58 @@ bool MultiMultiGas::begin(const MultiMultiGasI2cOps *ops) {
 bool MultiMultiGas::_begin_scan_() {
   _log("scanning I2C 0x%02X-0x%02X", MULTI_MULTIGAS_I2C_ADDR_START, MULTI_MULTIGAS_I2C_ADDR_END - 1);
 
+  _unidentified_count = 0;
+
   for (uint8_t address = MULTI_MULTIGAS_I2C_ADDR_START; address < MULTI_MULTIGAS_I2C_ADDR_END; address++) {
     if (_i2c_ops_.probe(_i2c_ops_.ctx, address)) {
       _log("I2C probe 0x%02X: ACK", address);
-      _setup_sensor(address);
+      if (!_setup_sensor(address)) {
+        _add_unidentified(address);
+      }
     } else if (this->_debug) {
       _log("I2C probe 0x%02X: no response", address);
     }
   }
 
-  _log("scan complete: %u sensor(s) initialized", _count_sensors());
+  _log("scan complete: %u sensor(s) initialized, %u address(es) unidentified", _count_sensors(), _unidentified_count);
   return _any_found();
+}
+
+uint8_t MultiMultiGas::unidentified_addr(uint8_t index) const {
+  if (index >= _unidentified_count) {
+    return 0;
+  }
+  return _unidentified[index];
+}
+
+void MultiMultiGas::_add_unidentified(uint8_t address) {
+  if (_unidentified_count >= MAX_UNIDENTIFIED) {
+    return;
+  }
+  _unidentified[_unidentified_count++] = address;
+}
+
+void MultiMultiGas::_drop_unidentified(uint8_t index) {
+  if (index >= _unidentified_count) {
+    return;
+  }
+  for (uint8_t i = index; i + 1 < _unidentified_count; i++) {
+    _unidentified[i] = _unidentified[i + 1];
+  }
+  _unidentified_count--;
+}
+
+uint8_t MultiMultiGas::retry_unidentified() {
+  uint8_t registered = 0;
+  for (uint8_t i = 0; i < _unidentified_count;) {
+    if (_setup_sensor(_unidentified[i])) {
+      _drop_unidentified(i);
+      registered++;
+    } else {
+      i++;
+    }
+  }
+  return registered;
 }
 
 bool MultiMultiGas::_setup_sensor(uint8_t address) {

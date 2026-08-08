@@ -65,7 +65,7 @@ esphome:
   name: my-sensor
   libraries:
     - Wire
-    - multi-multigas=https://github.com/romkey/multi-multigas#1.2.2
+    - multi-multigas=https://github.com/romkey/multi-multigas#1.3.0
 
 external_components:
   - source: github://romkey/multi-multigas
@@ -105,12 +105,13 @@ Notes:
 - **`external_components` is required** — use `github://romkey/multi-multigas` (ESPHome finds components in `components/` automatically).
 - Use **`i2c_id:`** to select which I2C bus when you have more than one. With a single `i2c:` block, `i2c_id` is optional.
 - Use `framework: type: arduino`. The DFRobot dependency needs `Arduino.h` and `Wire.h`, so keep `Wire` in `libraries:` — but note the component itself performs all I2C through the ESPHome bus selected by `i2c_id`, not through `Wire`.
-- Set `debug: true` and `logger level: DEBUG` to trace bus probes, detected gas types, warmup, and skipped publishes.
+- Set `logger: level: DEBUG` to see the per-address scan, detected gas types, warmup, and skipped publishes. Adding `debug: true` additionally probes the whole 0x08–0x77 range at startup so its output can be compared directly against the `i2c:` component's own `scan: true` results.
+- An address that acknowledges on the bus but does not report a supported gas type is logged as a warning (regardless of `debug:`) and retried on every update. Sensors that are still booting behave this way, so they get picked up a minute or two later and the `detected_gases` list is republished.
 - Configure only the gas sensors you want exposed; each is optional.
 - `detected_gases` is an optional text sensor whose state is the comma-separated list of gas types found on the bus, for example `CO, H2S, O2`. It is published as soon as the scan finishes rather than after the warmup, and lists everything detected even if you did not configure a sensor for it.
 - O2 is reported in **percent**; other gases use **ppm**.
 - Sensors need about **3 minutes** to warm up before readings are published.
-- If no sensors are found at startup, the component marks itself as failed.
+- If nothing at all answers in 0x60–0x7F at startup, the component marks itself as failed. If something answers but cannot be identified, the component stays up and keeps retrying.
 - If you see `multi_gas cannot be loaded via YAML (no CONFIG_SCHEMA)`, ESPHome is importing a leftover component directory that no longer has an `__init__.py`. Delete `.esphome/external_components/` (a "Clean Build Files" does **not** remove it) and restart the ESPHome dashboard or add-on, which also clears its in-memory module cache.
 
 ## API
@@ -122,6 +123,8 @@ Notes:
 | `get_co()` etc. | Read concentration in ppm (or `%` for O2 via DFRobot library). Returns `NaN` if not available. |
 | `get_co_raw()` etc. | Read raw sensor voltage. |
 | `get_co_i2c_addr()` etc. | I2C address of the detected sensor. |
+| `unidentified_count()` / `unidentified_addr(i)` | Addresses that acknowledged but reported no supported gas type. |
+| `retry_unidentified()` | Re-run identification on those addresses. Returns how many sensors were newly registered. |
 | `change_addrs(start, end, group, wire)` | Change the address group for sensors in a range. |
 
 ## License

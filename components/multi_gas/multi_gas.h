@@ -44,6 +44,9 @@ class MultiGas : public PollingComponent, public i2c::I2CDevice {
  protected:
   void debug_probe_esphome_bus_();
   void debug_log_summary_();
+  void log_unidentified_();
+  void retry_unidentified_();
+  void publish_detected_gases_();
   void publish_if_available(const char *name, sensor::Sensor *target, bool available, float value);
   std::string detected_gas_list_() const;
 

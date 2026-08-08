@@ -36,6 +36,15 @@ class MultiMultiGas {
   bool debug() const { return _debug; }
   uint8_t sensor_count() const;
 
+  // Addresses that acknowledged during the scan but did not report a supported
+  // gas type. A sensor that is still booting answers its address before it can
+  // answer commands, so these are worth retrying.
+  uint8_t unidentified_count() const { return _unidentified_count; }
+  uint8_t unidentified_addr(uint8_t index) const;
+  // Re-runs identification on every unidentified address; returns how many
+  // sensors were newly registered.
+  uint8_t retry_unidentified();
+
   TwoWire *wire() const { return _wire; }
 
   bool has_cl2() const { return _cl2.sensor != nullptr; }
@@ -98,6 +107,8 @@ class MultiMultiGas {
     DFRobot_GAS *sensor = nullptr;
   };
 
+  static constexpr uint8_t MAX_UNIDENTIFIED = MULTI_MULTIGAS_I2C_ADDR_END - MULTI_MULTIGAS_I2C_ADDR_START;
+
   bool _begin_scan_();
   bool _setup_sensor(uint8_t address);
   void _assign_slot(Slot &slot, DFRobot_GAS *gas, uint8_t address);
@@ -107,6 +118,8 @@ class MultiMultiGas {
   static float _read_raw(const Slot &slot);
   bool _any_found() const;
   uint8_t _count_sensors() const;
+  void _add_unidentified(uint8_t address);
+  void _drop_unidentified(uint8_t index);
 
   static void _assign_group(TwoWire *wire, uint8_t address, uint8_t group);
 
@@ -115,6 +128,8 @@ class MultiMultiGas {
   LogCallback _log_callback = nullptr;
   void *_log_callback_ctx = nullptr;
   bool _debug = false;
+  uint8_t _unidentified[MAX_UNIDENTIFIED] = {};
+  uint8_t _unidentified_count = 0;
 
   Slot _cl2;
   Slot _co;

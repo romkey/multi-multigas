@@ -35,10 +35,8 @@ int MultiGas::esphome_i2c_read_(void *ctx, uint8_t address, uint8_t *data, size_
 }
 
 void MultiGas::esphome_library_log_(void *ctx, const char *msg) {
-  auto *self = static_cast<MultiGas *>(ctx);
-  if (self->debug_) {
-    ESP_LOGI(TAG, "%s", msg);
-  }
+  (void) ctx;
+  ESP_LOGD(TAG, "%s", msg);
 }
 
 void MultiGas::debug_probe_esphome_bus_() {
@@ -47,14 +45,29 @@ void MultiGas::debug_probe_esphome_bus_() {
     return;
   }
 
-  ESP_LOGI(TAG, "Probing ESPHome I2C bus 0x60-0x7F:");
-  for (uint8_t address = 0x60; address < 0x80; address++) {
+  // Same range and probe style as the i2c component's own scan, so the output
+  // can be compared line for line against `scan: true`.
+  ESP_LOGI(TAG, "Probing ESPHome I2C bus 0x08-0x77:");
+  for (uint8_t address = 0x08; address < 0x78; address++) {
     i2c::ErrorCode err = this->bus_->write_readv(address, nullptr, 0, nullptr, 0);
     if (err == i2c::ERROR_OK) {
-      ESP_LOGI(TAG, "  ESPHome probe 0x%02X: ACK", address);
-    } else if (this->debug_) {
+      bool in_range = address >= MULTI_MULTIGAS_I2C_ADDR_START && address < MULTI_MULTIGAS_I2C_ADDR_END;
+      ESP_LOGI(TAG, "  ESPHome probe 0x%02X: ACK%s", address,
+               in_range ? "" : " (outside DFRobot range, ignored)");
+    } else {
       ESP_LOGD(TAG, "  ESPHome probe 0x%02X: err=%d", address, err);
     }
+  }
+}
+
+void MultiGas::log_unidentified_() {
+  uint8_t count = this->sensors_.unidentified_count();
+  if (count == 0) {
+    return;
+  }
+  for (uint8_t i = 0; i < count; i++) {
+    ESP_LOGW(TAG, "0x%02X answered on the bus but did not report a supported gas type; will retry every update",
+             this->sensors_.unidentified_addr(i));
   }
 }
 
@@ -129,6 +142,28 @@ void MultiGas::publish_if_available(const char *name, sensor::Sensor *target, bo
   target->publish_state(value);
 }
 
+void MultiGas::publish_detected_gases_() {
+#ifdef USE_TEXT_SENSOR
+  // The detected set is known as soon as the bus scan completes, so it does not
+  // wait for the warmup that gates the concentration readings.
+  if (this->detected_gases_text_sensor_ != nullptr) {
+    this->detected_gases_text_sensor_->publish_state(this->detected_gas_list_());
+  }
+#endif
+}
+
+void MultiGas::retry_unidentified_() {
+  if (this->sensors_.unidentified_count() == 0) {
+    return;
+  }
+  uint8_t registered = this->sensors_.retry_unidentified();
+  if (registered > 0) {
+    ESP_LOGI(TAG, "Identified %u more sensor(s) on retry, %u total", registered, this->sensors_.sensor_count());
+    this->publish_detected_gases_();
+  }
+  this->log_unidentified_();
+}
+
 void MultiGas::setup() {
   this->sensors_.set_debug(this->debug_);
   this->sensors_.set_log_callback(esphome_library_log_, this);
@@ -144,10 +179,15 @@ void MultiGas::setup() {
   ops.write = esphome_i2c_write_;
   ops.read = esphome_i2c_read_;
 
-  if (!this->sensors_.begin(&ops)) {
+  bool found_any = this->sensors_.begin(&ops);
+  this->log_unidentified_();
+
+  // An address that answers but cannot be identified yet is kept alive so
+  // update() can retry it; only a completely silent bus is fatal.
+  if (!found_any && this->sensors_.unidentified_count() == 0) {
     ESP_LOGE(TAG, "No DFRobot gas sensors found on configured I2C bus");
+    ESP_LOGE(TAG, "If an i2c scan shows devices in 0x60-0x7F but this found none, check i2c_id and bus wiring");
     if (this->debug_) {
-      ESP_LOGE(TAG, "If ESPHome i2c scan shows devices above but the library found none, check i2c_id and bus wiring");
       this->debug_log_summary_();
     }
     this->mark_failed(LOG_STR("No DFRobot gas sensors found on I2C bus"));
@@ -160,13 +200,7 @@ void MultiGas::setup() {
 
   ESP_LOGI(TAG, "Found %u sensor(s); warmup 3 minutes before publishing", this->sensors_.sensor_count());
 
-#ifdef USE_TEXT_SENSOR
-  // The detected set is fixed once the bus scan completes, so it does not wait
-  // for the warmup that gated the concentration readings.
-  if (this->detected_gases_text_sensor_ != nullptr) {
-    this->detected_gases_text_sensor_->publish_state(this->detected_gas_list_());
-  }
-#endif
+  this->publish_detected_gases_();
 
   this->set_timeout("warmup", 3 * 60 * 1000, [this]() {
     this->warmed_up_ = true;
@@ -175,6 +209,8 @@ void MultiGas::setup() {
 }
 
 void MultiGas::update() {
+  this->retry_unidentified_();
+
   if (!this->warmed_up_) {
     if (this->debug_) {
       ESP_LOGD(TAG, "waiting for warmup");
@@ -220,6 +256,10 @@ void MultiGas::dump_config() {
   log_sensor("NO2", this->sensors_.has_no2(), this->sensors_.get_no2_i2c_addr());
   log_sensor("PH3", this->sensors_.has_ph3(), this->sensors_.get_ph3_i2c_addr());
   log_sensor("SO2", this->sensors_.has_so2(), this->sensors_.get_so2_i2c_addr());
+
+  for (uint8_t i = 0; i < this->sensors_.unidentified_count(); i++) {
+    ESP_LOGCONFIG(TAG, "  0x%02X: responds but gas type unknown", this->sensors_.unidentified_addr(i));
+  }
 }
 
 }  // namespace multi_gas
