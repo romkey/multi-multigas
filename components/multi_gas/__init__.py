@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import i2c, sensor
+from esphome.components import i2c, sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     STATE_CLASS_MEASUREMENT,
@@ -10,12 +10,13 @@ from esphome.const import (
 
 CODEOWNERS = ["@romkey"]
 DEPENDENCIES = ["i2c"]
-AUTO_LOAD = ["sensor"]
+AUTO_LOAD = ["sensor", "text_sensor"]
 
 multi_gas_ns = cg.esphome_ns.namespace("multi_gas")
 MultiGas = multi_gas_ns.class_("MultiGas", cg.PollingComponent, i2c.I2CDevice)
 
 CONF_DEBUG = "debug"
+CONF_DETECTED_GASES = "detected_gases"
 
 CONF_CL2 = "cl2"
 CONF_CO = "co"
@@ -58,12 +59,15 @@ O2_SENSOR_SCHEMA = sensor.sensor_schema(
     accuracy_decimals=2,
 )
 
+DETECTED_GASES_SCHEMA = text_sensor.text_sensor_schema()
+
 CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(MultiGas),
             cv.Optional(CONF_DEBUG, default=False): cv.boolean,
             cv.Optional(CONF_O2): O2_SENSOR_SCHEMA,
+            cv.Optional(CONF_DETECTED_GASES): DETECTED_GASES_SCHEMA,
         }
     )
     .extend({cv.Optional(name): PPM_SENSOR_SCHEMA for name in PPM_SENSORS})
@@ -82,3 +86,7 @@ async def to_code(config):
         if sensor_type in config:
             sens = await sensor.new_sensor(config[sensor_type])
             cg.add(getattr(var, f"set_{sensor_type}_sensor")(sens))
+
+    if CONF_DETECTED_GASES in config:
+        text_sens = await text_sensor.new_text_sensor(config[CONF_DETECTED_GASES])
+        cg.add(var.set_detected_gases_text_sensor(text_sens))

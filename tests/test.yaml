@@ -26,6 +26,8 @@ i2c:
 multi_gas:
   id: gas_sensors
   update_interval: 60s
+  detected_gases:
+    name: "Detected Gases"
   co:
     name: "Carbon Monoxide"
   o2:

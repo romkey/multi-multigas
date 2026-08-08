@@ -89,6 +89,8 @@ multi_gas:
   i2c_id: gas_bus
   update_interval: 60s
   debug: true
+  detected_gases:
+    name: "Detected Gases"
   co:
     name: "Carbon Monoxide"
   h2s:
@@ -105,6 +107,7 @@ Notes:
 - Use `framework: type: arduino`. The DFRobot dependency needs `Arduino.h` and `Wire.h`, so keep `Wire` in `libraries:` — but note the component itself performs all I2C through the ESPHome bus selected by `i2c_id`, not through `Wire`.
 - Set `debug: true` and `logger level: DEBUG` to trace bus probes, detected gas types, warmup, and skipped publishes.
 - Configure only the gas sensors you want exposed; each is optional.
+- `detected_gases` is an optional text sensor whose state is the comma-separated list of gas types found on the bus, for example `CO, H2S, O2`. It is published as soon as the scan finishes rather than after the warmup, and lists everything detected even if you did not configure a sensor for it.
 - O2 is reported in **percent**; other gases use **ppm**.
 - Sensors need about **3 minutes** to warm up before readings are published.
 - If no sensors are found at startup, the component marks itself as failed.

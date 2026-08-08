@@ -2,9 +2,12 @@
 
 #include "esphome/components/i2c/i2c.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
 
 #include <multi-multigas.h>
+
+#include <string>
 
 namespace esphome {
 namespace multi_gas {
@@ -28,6 +31,10 @@ class MultiGas : public PollingComponent, public i2c::I2CDevice {
   SUB_SENSOR(so2)
 #endif
 
+#ifdef USE_TEXT_SENSOR
+  SUB_TEXT_SENSOR(detected_gases)
+#endif
+
   float get_setup_priority() const override { return setup_priority::DATA; }
 
   void setup() override;
@@ -38,6 +45,7 @@ class MultiGas : public PollingComponent, public i2c::I2CDevice {
   void debug_probe_esphome_bus_();
   void debug_log_summary_();
   void publish_if_available(const char *name, sensor::Sensor *target, bool available, float value);
+  std::string detected_gas_list_() const;
 
   // Drive the sensors over ESPHome's I2C bus so the component works the same
   // on Arduino and ESP-IDF, and always uses the bus selected by i2c_id.

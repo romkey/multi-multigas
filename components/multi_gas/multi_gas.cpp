@@ -81,6 +81,32 @@ void MultiGas::debug_log_summary_() {
   ESP_LOGI(TAG, "Library detected %u sensor(s)", this->sensors_.sensor_count());
 }
 
+std::string MultiGas::detected_gas_list_() const {
+  std::string list;
+  auto append = [&](const char *name, bool detected) {
+    if (!detected) {
+      return;
+    }
+    if (!list.empty()) {
+      list += ", ";
+    }
+    list += name;
+  };
+  append("CL2", this->sensors_.has_cl2());
+  append("CO", this->sensors_.has_co());
+  append("H2", this->sensors_.has_h2());
+  append("H2S", this->sensors_.has_h2s());
+  append("HF", this->sensors_.has_hf());
+  append("HCL", this->sensors_.has_hcl());
+  append("O2", this->sensors_.has_o2());
+  append("O3", this->sensors_.has_o3());
+  append("NH3", this->sensors_.has_nh3());
+  append("NO2", this->sensors_.has_no2());
+  append("PH3", this->sensors_.has_ph3());
+  append("SO2", this->sensors_.has_so2());
+  return list;
+}
+
 void MultiGas::publish_if_available(const char *name, sensor::Sensor *target, bool available, float value) {
   if (target == nullptr) {
     return;
@@ -133,6 +159,14 @@ void MultiGas::setup() {
   }
 
   ESP_LOGI(TAG, "Found %u sensor(s); warmup 3 minutes before publishing", this->sensors_.sensor_count());
+
+#ifdef USE_TEXT_SENSOR
+  // The detected set is fixed once the bus scan completes, so it does not wait
+  // for the warmup that gated the concentration readings.
+  if (this->detected_gases_text_sensor_ != nullptr) {
+    this->detected_gases_text_sensor_->publish_state(this->detected_gas_list_());
+  }
+#endif
 
   this->set_timeout("warmup", 3 * 60 * 1000, [this]() {
     this->warmed_up_ = true;
