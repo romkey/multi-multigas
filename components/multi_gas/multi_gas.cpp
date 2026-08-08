@@ -41,23 +41,6 @@ void MultiGas::esphome_library_log_(void *ctx, const char *msg) {
   }
 }
 
-static uint8_t count_detected_sensors_(const MultiMultiGas &sensors) {
-  uint8_t count = 0;
-  if (sensors.has_cl2()) count++;
-  if (sensors.has_co()) count++;
-  if (sensors.has_h2()) count++;
-  if (sensors.has_h2s()) count++;
-  if (sensors.has_hf()) count++;
-  if (sensors.has_hcl()) count++;
-  if (sensors.has_o2()) count++;
-  if (sensors.has_o3()) count++;
-  if (sensors.has_nh3()) count++;
-  if (sensors.has_no2()) count++;
-  if (sensors.has_ph3()) count++;
-  if (sensors.has_so2()) count++;
-  return count;
-}
-
 void MultiGas::debug_probe_esphome_bus_() {
   if (this->bus_ == nullptr) {
     ESP_LOGW(TAG, "ESPHome I2C bus not available for debug probe");
@@ -95,7 +78,7 @@ void MultiGas::debug_log_summary_() {
   log_cfg("PH3", this->ph3_sensor_);
   log_cfg("SO2", this->so2_sensor_);
 
-  ESP_LOGI(TAG, "Library detected %u sensor(s)", count_detected_sensors_(this->sensors_));
+  ESP_LOGI(TAG, "Library detected %u sensor(s)", this->sensors_.sensor_count());
 }
 
 void MultiGas::publish_if_available(const char *name, sensor::Sensor *target, bool available, float value) {
@@ -149,7 +132,7 @@ void MultiGas::setup() {
     this->debug_log_summary_();
   }
 
-  ESP_LOGI(TAG, "Found %u sensor(s); warmup 3 minutes before publishing", count_detected_sensors_(this->sensors_));
+  ESP_LOGI(TAG, "Found %u sensor(s); warmup 3 minutes before publishing", this->sensors_.sensor_count());
 
   this->set_timeout("warmup", 3 * 60 * 1000, [this]() {
     this->warmed_up_ = true;

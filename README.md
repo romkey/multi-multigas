@@ -64,11 +64,17 @@ The external component lives at `components/multi_gas/`.
 esphome:
   name: my-sensor
   libraries:
+    - Wire
     - multi-multigas=https://github.com/romkey/multi-multigas#1.2.2
 
 external_components:
   - source: github://romkey/multi-multigas
     components: [multi_gas]
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
 
 i2c:
   - id: gas_bus
@@ -96,13 +102,13 @@ Notes:
 - **`multi_gas:` is correct** — it is a top-level component, not under `sensor:`.
 - **`external_components` is required** — use `github://romkey/multi-multigas` (ESPHome finds components in `components/` automatically).
 - Use **`i2c_id:`** to select which I2C bus when you have more than one. With a single `i2c:` block, `i2c_id` is optional.
-- The component always talks to the sensors through the ESPHome I2C bus, on both the `esp-idf` and `arduino` frameworks. Do not add `Wire` to `libraries:`.
+- Use `framework: type: arduino`. The DFRobot dependency needs `Arduino.h` and `Wire.h`, so keep `Wire` in `libraries:` — but note the component itself performs all I2C through the ESPHome bus selected by `i2c_id`, not through `Wire`.
 - Set `debug: true` and `logger level: DEBUG` to trace bus probes, detected gas types, warmup, and skipped publishes.
 - Configure only the gas sensors you want exposed; each is optional.
 - O2 is reported in **percent**; other gases use **ppm**.
 - Sensors need about **3 minutes** to warm up before readings are published.
 - If no sensors are found at startup, the component marks itself as failed.
-- If your editor warns `multi_gas cannot be loaded via YAML (no CONFIG_SCHEMA)` but `esphome compile` succeeds, ensure `external_components` appears in your config (or an included package), then clear `.esphome/` and set `refresh: 0s`. Do not set a custom `path:` unless it points at the folder that contains `multi_gas/__init__.py` (for this repo, use the default GitHub source without `path:`).
+- If you see `multi_gas cannot be loaded via YAML (no CONFIG_SCHEMA)`, ESPHome is importing a leftover component directory that no longer has an `__init__.py`. Delete `.esphome/external_components/` (a "Clean Build Files" does **not** remove it) and restart the ESPHome dashboard or add-on, which also clears its in-memory module cache.
 
 ## API
 

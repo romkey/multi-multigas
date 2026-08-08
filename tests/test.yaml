@@ -9,6 +9,9 @@ external_components:
 esphome:
   name: multi-multigas-test
   libraries:
+    # The DFRobot dependency includes Wire.h, so Arduino's Wire must be present
+    # even though the component itself talks over the ESPHome I2C bus.
+    - Wire
     - multi-multigas=..
 
 esp32:

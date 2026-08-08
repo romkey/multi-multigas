@@ -1,4 +1,8 @@
-# ESP-IDF config validation (matches ESP32-S3 ESPHome builds).
+# ESP32-S3 compile validation.
+#
+# The framework must be `arduino`: the DFRobot dependency includes Arduino.h
+# and Wire.h, which a pure `esp-idf` build does not provide. ESPHome still
+# builds this through ESP-IDF with Arduino as a component.
 
 external_components:
   - source:
@@ -6,14 +10,15 @@ external_components:
       path: ../components
 
 esphome:
-  name: multi-multigas-test-idf
+  name: multi-multigas-test-s3
   libraries:
+    - Wire
     - multi-multigas=..
 
 esp32:
   board: esp32-s3-devkitc-1
   framework:
-    type: esp-idf
+    type: arduino
 
 i2c:
   sda: GPIO8
