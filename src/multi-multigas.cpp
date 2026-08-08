@@ -17,6 +17,10 @@ class DFRobot_GAS_Transport : public DFRobot_GAS {
  public:
   DFRobot_GAS_Transport(const MultiMultiGasI2cOps *ops, uint8_t address) : ops_(ops), address_(address) {}
 
+  // DFRobot_GAS does not declare one, so give the concrete type a virtual
+  // destructor and always delete through it.
+  virtual ~DFRobot_GAS_Transport() = default;
+
   bool begin() override { return ops_->probe != nullptr && ops_->probe(ops_->ctx, address_); }
 
   bool dataIsAvailable() override { return false; }
@@ -146,16 +150,13 @@ MultiMultiGas::~MultiMultiGas() {
 }
 
 void MultiMultiGas::_clear_slot(Slot &slot) {
-  delete slot.sensor;
+  // DFRobot_GAS has no virtual destructor, so delete through the concrete type.
+  delete static_cast<DFRobot_GAS_Transport *>(slot.sensor);
   slot.sensor = nullptr;
   slot.addr = 0;
 }
 
 void MultiMultiGas::_assign_slot(Slot &slot, DFRobot_GAS *gas, uint8_t address) {
-  if (slot.sensor != nullptr) {
-    _log("replacing duplicate sensor at 0x%02x", slot.addr);
-    _clear_slot(slot);
-  }
   slot.sensor = gas;
   slot.addr = address;
 }
@@ -200,19 +201,28 @@ bool MultiMultiGas::_begin_scan_() {
   _log("scanning I2C 0x%02X-0x%02X", MULTI_MULTIGAS_I2C_ADDR_START, MULTI_MULTIGAS_I2C_ADDR_END - 1);
 
   _unidentified_count = 0;
+  _duplicate_count = 0;
 
   for (uint8_t address = MULTI_MULTIGAS_I2C_ADDR_START; address < MULTI_MULTIGAS_I2C_ADDR_END; address++) {
     if (_i2c_ops_.probe(_i2c_ops_.ctx, address)) {
       _log("I2C probe 0x%02X: ACK", address);
-      if (!_setup_sensor(address)) {
-        _add_unidentified(address);
+      switch (_setup_sensor(address)) {
+        case SETUP_REGISTERED:
+          break;
+        case SETUP_DUPLICATE:
+          _add_duplicate(address);
+          break;
+        case SETUP_UNIDENTIFIED:
+          _add_unidentified(address);
+          break;
       }
     } else if (this->_debug) {
       _log("I2C probe 0x%02X: no response", address);
     }
   }
 
-  _log("scan complete: %u sensor(s) initialized, %u address(es) unidentified", _count_sensors(), _unidentified_count);
+  _log("scan complete: %u sensor(s) initialized, %u unidentified, %u duplicate", _count_sensors(), _unidentified_count,
+       _duplicate_count);
   return _any_found();
 }
 
@@ -224,10 +234,24 @@ uint8_t MultiMultiGas::unidentified_addr(uint8_t index) const {
 }
 
 void MultiMultiGas::_add_unidentified(uint8_t address) {
-  if (_unidentified_count >= MAX_UNIDENTIFIED) {
+  if (_unidentified_count >= MAX_TRACKED) {
     return;
   }
   _unidentified[_unidentified_count++] = address;
+}
+
+uint8_t MultiMultiGas::duplicate_addr(uint8_t index) const {
+  if (index >= _duplicate_count) {
+    return 0;
+  }
+  return _duplicate[index];
+}
+
+void MultiMultiGas::_add_duplicate(uint8_t address) {
+  if (_duplicate_count >= MAX_TRACKED) {
+    return;
+  }
+  _duplicate[_duplicate_count++] = address;
 }
 
 void MultiMultiGas::_drop_unidentified(uint8_t index) {
@@ -243,25 +267,30 @@ void MultiMultiGas::_drop_unidentified(uint8_t index) {
 uint8_t MultiMultiGas::retry_unidentified() {
   uint8_t registered = 0;
   for (uint8_t i = 0; i < _unidentified_count;) {
-    if (_setup_sensor(_unidentified[i])) {
-      _drop_unidentified(i);
+    SetupResult result = _setup_sensor(_unidentified[i]);
+    if (result == SETUP_UNIDENTIFIED) {
+      i++;
+      continue;
+    }
+    if (result == SETUP_REGISTERED) {
       registered++;
     } else {
-      i++;
+      _add_duplicate(_unidentified[i]);
     }
+    _drop_unidentified(i);
   }
   return registered;
 }
 
-bool MultiMultiGas::_setup_sensor(uint8_t address) {
-  DFRobot_GAS *gas = new DFRobot_GAS_Transport(&_i2c_ops_, address);
+MultiMultiGas::SetupResult MultiMultiGas::_setup_sensor(uint8_t address) {
+  auto *gas = new DFRobot_GAS_Transport(&_i2c_ops_, address);
 
   _log("initializing DFRobot sensor at 0x%02X", address);
 
   if (!gas->begin()) {
     _log("DFRobot begin() failed at 0x%02X", address);
     delete gas;
-    return false;
+    return SETUP_UNIDENTIFIED;
   }
 
   String gas_type = gas->queryGasType();
@@ -298,13 +327,19 @@ bool MultiMultiGas::_setup_sensor(uint8_t address) {
   if (slot == nullptr) {
     _log("unsupported or empty gas type at 0x%02X: '%s'", address, gas_type.c_str());
     delete gas;
-    return false;
+    return SETUP_UNIDENTIFIED;
+  }
+
+  if (slot->sensor != nullptr) {
+    _log("0x%02X reports %s, already provided by 0x%02X; keeping the first", address, gas_type.c_str(), slot->addr);
+    delete gas;
+    return SETUP_DUPLICATE;
   }
 
   _assign_slot(*slot, gas, address);
   gas->changeAcquireMode(gas->PASSIVITY);
   _log("registered %s at 0x%02X", gas_type.c_str(), address);
-  return true;
+  return SETUP_REGISTERED;
 }
 
 float MultiMultiGas::get_cl2() { return _read_ppm(_cl2); }

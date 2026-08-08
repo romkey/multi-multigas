@@ -45,6 +45,11 @@ class MultiMultiGas {
   // sensors were newly registered.
   uint8_t retry_unidentified();
 
+  // Addresses whose gas type is already provided by a lower address. There is
+  // one slot per gas type, so these cannot be read; the first one found wins.
+  uint8_t duplicate_count() const { return _duplicate_count; }
+  uint8_t duplicate_addr(uint8_t index) const;
+
   TwoWire *wire() const { return _wire; }
 
   bool has_cl2() const { return _cl2.sensor != nullptr; }
@@ -107,10 +112,16 @@ class MultiMultiGas {
     DFRobot_GAS *sensor = nullptr;
   };
 
-  static constexpr uint8_t MAX_UNIDENTIFIED = MULTI_MULTIGAS_I2C_ADDR_END - MULTI_MULTIGAS_I2C_ADDR_START;
+  static constexpr uint8_t MAX_TRACKED = MULTI_MULTIGAS_I2C_ADDR_END - MULTI_MULTIGAS_I2C_ADDR_START;
+
+  enum SetupResult {
+    SETUP_REGISTERED,
+    SETUP_DUPLICATE,
+    SETUP_UNIDENTIFIED,
+  };
 
   bool _begin_scan_();
-  bool _setup_sensor(uint8_t address);
+  SetupResult _setup_sensor(uint8_t address);
   void _assign_slot(Slot &slot, DFRobot_GAS *gas, uint8_t address);
   void _clear_slot(Slot &slot);
   void _log(const char *fmt, ...) const;
@@ -120,6 +131,7 @@ class MultiMultiGas {
   uint8_t _count_sensors() const;
   void _add_unidentified(uint8_t address);
   void _drop_unidentified(uint8_t index);
+  void _add_duplicate(uint8_t address);
 
   static void _assign_group(TwoWire *wire, uint8_t address, uint8_t group);
 
@@ -128,8 +140,10 @@ class MultiMultiGas {
   LogCallback _log_callback = nullptr;
   void *_log_callback_ctx = nullptr;
   bool _debug = false;
-  uint8_t _unidentified[MAX_UNIDENTIFIED] = {};
+  uint8_t _unidentified[MAX_TRACKED] = {};
   uint8_t _unidentified_count = 0;
+  uint8_t _duplicate[MAX_TRACKED] = {};
+  uint8_t _duplicate_count = 0;
 
   Slot _cl2;
   Slot _co;

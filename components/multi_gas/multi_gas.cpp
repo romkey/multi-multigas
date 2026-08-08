@@ -60,14 +60,15 @@ void MultiGas::debug_probe_esphome_bus_() {
   }
 }
 
-void MultiGas::log_unidentified_() {
-  uint8_t count = this->sensors_.unidentified_count();
-  if (count == 0) {
-    return;
-  }
-  for (uint8_t i = 0; i < count; i++) {
+void MultiGas::log_unclaimed_() {
+  for (uint8_t i = 0; i < this->sensors_.unidentified_count(); i++) {
     ESP_LOGW(TAG, "0x%02X answered on the bus but did not report a supported gas type; will retry every update",
              this->sensors_.unidentified_addr(i));
+  }
+  for (uint8_t i = 0; i < this->sensors_.duplicate_count(); i++) {
+    ESP_LOGW(TAG, "0x%02X reports a gas type another sensor already provides and cannot be read; only one sensor per "
+                  "gas type is supported",
+             this->sensors_.duplicate_addr(i));
   }
 }
 
@@ -161,7 +162,7 @@ void MultiGas::retry_unidentified_() {
     ESP_LOGI(TAG, "Identified %u more sensor(s) on retry, %u total", registered, this->sensors_.sensor_count());
     this->publish_detected_gases_();
   }
-  this->log_unidentified_();
+  this->log_unclaimed_();
 }
 
 void MultiGas::setup() {
@@ -180,7 +181,7 @@ void MultiGas::setup() {
   ops.read = esphome_i2c_read_;
 
   bool found_any = this->sensors_.begin(&ops);
-  this->log_unidentified_();
+  this->log_unclaimed_();
 
   // An address that answers but cannot be identified yet is kept alive so
   // update() can retry it; only a completely silent bus is fatal.
@@ -259,6 +260,9 @@ void MultiGas::dump_config() {
 
   for (uint8_t i = 0; i < this->sensors_.unidentified_count(); i++) {
     ESP_LOGCONFIG(TAG, "  0x%02X: responds but gas type unknown", this->sensors_.unidentified_addr(i));
+  }
+  for (uint8_t i = 0; i < this->sensors_.duplicate_count(); i++) {
+    ESP_LOGCONFIG(TAG, "  0x%02X: duplicate gas type, not read", this->sensors_.duplicate_addr(i));
   }
 }
 
