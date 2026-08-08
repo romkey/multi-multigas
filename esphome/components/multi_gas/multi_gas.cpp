@@ -1,6 +1,9 @@
 #include "multi_gas.h"
 
 #include "esphome/components/i2c/i2c_bus.h"
+#if defined(USE_ESP32)
+#include "esphome/components/i2c/i2c_bus_esp_idf.h"
+#endif
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
@@ -11,9 +14,21 @@ namespace multi_gas {
 
 static const char *const TAG = "multi_gas";
 
-void MultiGas::log_bridge_(void *ctx, const char *msg) {
-  auto *self = static_cast<MultiGas *>(ctx);
-  ESP_LOGI(TAG, "[lib] %s", msg);
+static uint8_t count_detected_sensors_(const MultiMultiGas &sensors) {
+  uint8_t count = 0;
+  if (sensors.has_cl2()) count++;
+  if (sensors.has_co()) count++;
+  if (sensors.has_h2()) count++;
+  if (sensors.has_h2s()) count++;
+  if (sensors.has_hf()) count++;
+  if (sensors.has_hcl()) count++;
+  if (sensors.has_o2()) count++;
+  if (sensors.has_o3()) count++;
+  if (sensors.has_nh3()) count++;
+  if (sensors.has_no2()) count++;
+  if (sensors.has_ph3()) count++;
+  if (sensors.has_so2()) count++;
+  return count;
 }
 
 TwoWire *MultiGas::wire_for_bus_() {
@@ -22,21 +37,20 @@ TwoWire *MultiGas::wire_for_bus_() {
     return &Wire;
   }
 
-  auto *internal = dynamic_cast<i2c::InternalI2CBus *>(this->bus_);
-  if (internal == nullptr) {
-    ESP_LOGD(TAG, "Using default Wire for DFRobot library");
-    return &Wire;
-  }
-
-#if defined(USE_ESP32) && defined(USE_ARDUINO)
-  if (internal->get_port() == 1) {
+#if defined(USE_ESP32)
+  // ESPHome disables RTTI (-fno-rtti), so use static_cast; bus_ is IDFI2CBus on ESP32.
+  auto *idf_bus = static_cast<i2c::IDFI2CBus *>(this->bus_);
+  if (idf_bus->get_port() == 1) {
     ESP_LOGCONFIG(TAG, "Using Wire1 for I2C port 1");
     return &Wire1;
   }
-#endif
-
+  ESP_LOGCONFIG(TAG, "Using Wire for I2C port %d", idf_bus->get_port());
+  return &Wire;
+#else
+  auto *internal = static_cast<i2c::InternalI2CBus *>(this->bus_);
   ESP_LOGCONFIG(TAG, "Using Wire for I2C port %d", internal->get_port());
   return &Wire;
+#endif
 }
 
 void MultiGas::debug_probe_esphome_bus_() {
@@ -77,7 +91,7 @@ void MultiGas::debug_log_summary_() {
   log_cfg("PH3", this->ph3_sensor_);
   log_cfg("SO2", this->so2_sensor_);
 
-  ESP_LOGI(TAG, "Library detected %u sensor(s)", this->sensors_.sensor_count());
+  ESP_LOGI(TAG, "Library detected %u sensor(s)", count_detected_sensors_(this->sensors_));
 }
 
 void MultiGas::publish_if_available(const char *name, sensor::Sensor *target, bool available, float value) {
@@ -103,9 +117,6 @@ void MultiGas::publish_if_available(const char *name, sensor::Sensor *target, bo
 }
 
 void MultiGas::setup() {
-  this->sensors_.set_debug(this->debug_);
-  this->sensors_.set_log_callback(log_bridge_, this);
-
   if (this->debug_) {
     ESP_LOGI(TAG, "Debug enabled");
     this->debug_probe_esphome_bus_();
@@ -126,7 +137,7 @@ void MultiGas::setup() {
     this->debug_log_summary_();
   }
 
-  ESP_LOGI(TAG, "Found %u sensor(s); warmup 3 minutes before publishing", this->sensors_.sensor_count());
+  ESP_LOGI(TAG, "Found %u sensor(s); warmup 3 minutes before publishing", count_detected_sensors_(this->sensors_));
 
   this->set_timeout("warmup", 3 * 60 * 1000, [this]() {
     this->warmed_up_ = true;

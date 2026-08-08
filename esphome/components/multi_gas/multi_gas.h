@@ -35,7 +35,6 @@ class MultiGas : public PollingComponent, public i2c::I2CDevice {
   void dump_config() override;
 
  protected:
-  static void log_bridge_(void *ctx, const char *msg);
   TwoWire *wire_for_bus_();
   void debug_probe_esphome_bus_();
   void debug_log_summary_();
