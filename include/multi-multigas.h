@@ -9,12 +9,15 @@
 static constexpr uint8_t MULTI_MULTIGAS_I2C_ADDR_START = 0x60;
 static constexpr uint8_t MULTI_MULTIGAS_I2C_ADDR_END = 0x80;
 
+// Transport hooks so the sensors can be driven over a non-Arduino I2C stack
+// (e.g. ESPHome's ESP-IDF bus). Reads must be a separate transaction from the
+// preceding register write: the DFRobot firmware expects a STOP between them
+// rather than a repeated start.
 struct MultiMultiGasI2cOps {
   void *ctx = nullptr;
   bool (*probe)(void *ctx, uint8_t address) = nullptr;
   int (*write)(void *ctx, uint8_t address, const uint8_t *data, size_t len) = nullptr;
-  int (*write_read)(void *ctx, uint8_t address, const uint8_t *write_data, size_t write_len, uint8_t *read_data,
-                    size_t read_len) = nullptr;
+  int (*read)(void *ctx, uint8_t address, uint8_t *data, size_t len) = nullptr;
 };
 
 class MultiMultiGas {

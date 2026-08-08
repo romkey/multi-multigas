@@ -33,10 +33,13 @@ class DFRobot_GAS_Transport : public DFRobot_GAS {
   }
 
   int16_t readData(uint8_t reg, uint8_t *data, uint8_t len) override {
-    if (ops_->write_read == nullptr) {
+    if (ops_->write == nullptr || ops_->read == nullptr) {
       return -1;
     }
-    if (ops_->write_read(ops_->ctx, address_, &reg, 1, data, len) != 0) {
+    if (ops_->write(ops_->ctx, address_, &reg, 1) != 0) {
+      return -1;
+    }
+    if (ops_->read(ops_->ctx, address_, data, len) != 0) {
       return -1;
     }
     return len;
@@ -70,29 +73,18 @@ static int wire_write(void *ctx, uint8_t address, const uint8_t *data, size_t le
   return wire->endTransmission() == 0 ? 0 : -1;
 }
 
-static int wire_write_read(void *ctx, uint8_t address, const uint8_t *write_data, size_t write_len, uint8_t *read_data,
-                           size_t read_len) {
+static int wire_read(void *ctx, uint8_t address, uint8_t *data, size_t len) {
   auto *self = static_cast<MultiMultiGas *>(ctx);
   TwoWire *wire = self->wire();
   if (wire == nullptr) {
     return -1;
   }
-  wire->beginTransmission(address);
-  for (size_t i = 0; i < write_len; i++) {
-    wire->write(write_data[i]);
-  }
-  if (wire->endTransmission() != 0) {
-    return -1;
-  }
-  if (read_len == 0) {
-    return 0;
-  }
-  wire->requestFrom(address, static_cast<uint8_t>(read_len));
+  wire->requestFrom(address, static_cast<uint8_t>(len));
   size_t i = 0;
-  while (wire->available() && i < read_len) {
-    read_data[i++] = wire->read();
+  while (wire->available() && i < len) {
+    data[i++] = wire->read();
   }
-  return i == read_len ? 0 : -1;
+  return i == len ? 0 : -1;
 }
 
 }  // namespace
@@ -192,12 +184,12 @@ bool MultiMultiGas::begin(TwoWire *wire) {
   ops.ctx = this;
   ops.probe = wire_probe;
   ops.write = wire_write;
-  ops.write_read = wire_write_read;
+  ops.read = wire_read;
   return begin(&ops);
 }
 
 bool MultiMultiGas::begin(const MultiMultiGasI2cOps *ops) {
-  if (ops == nullptr || ops->probe == nullptr || ops->write == nullptr || ops->write_read == nullptr) {
+  if (ops == nullptr || ops->probe == nullptr || ops->write == nullptr || ops->read == nullptr) {
     return false;
   }
   _i2c_ops_ = *ops;

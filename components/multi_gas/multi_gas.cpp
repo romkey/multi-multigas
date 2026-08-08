@@ -1,30 +1,21 @@
 #include "multi_gas.h"
 
 #include "esphome/components/i2c/i2c_bus.h"
-#if defined(USE_ESP32)
-#include "esphome/components/i2c/i2c_bus_esp_idf.h"
-#endif
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
-
-#if defined(USE_ARDUINO)
-#include <Wire.h>
-#endif
 
 namespace esphome {
 namespace multi_gas {
 
 static const char *const TAG = "multi_gas";
 
-#if defined(USE_ESP32) && !defined(USE_ARDUINO)
-
 bool MultiGas::esphome_i2c_probe_(void *ctx, uint8_t address) {
   auto *self = static_cast<MultiGas *>(ctx);
   if (self->bus_ == nullptr) {
     return false;
   }
-  uint8_t byte = 0;
-  return self->bus_->read(address, &byte, 1) == i2c::ERROR_OK;
+  // A zero-length transfer is address-only; this is what the bus scan uses.
+  return self->bus_->write_readv(address, nullptr, 0, nullptr, 0) == i2c::ERROR_OK;
 }
 
 int MultiGas::esphome_i2c_write_(void *ctx, uint8_t address, const uint8_t *data, size_t len) {
@@ -35,13 +26,12 @@ int MultiGas::esphome_i2c_write_(void *ctx, uint8_t address, const uint8_t *data
   return self->bus_->write(address, data, len) == i2c::ERROR_OK ? 0 : -1;
 }
 
-int MultiGas::esphome_i2c_write_read_(void *ctx, uint8_t address, const uint8_t *write_data, size_t write_len,
-                                      uint8_t *read_data, size_t read_len) {
+int MultiGas::esphome_i2c_read_(void *ctx, uint8_t address, uint8_t *data, size_t len) {
   auto *self = static_cast<MultiGas *>(ctx);
   if (self->bus_ == nullptr) {
     return -1;
   }
-  return self->bus_->write_readv(address, write_data, write_len, read_data, read_len) == i2c::ERROR_OK ? 0 : -1;
+  return self->bus_->read(address, data, len) == i2c::ERROR_OK ? 0 : -1;
 }
 
 void MultiGas::esphome_library_log_(void *ctx, const char *msg) {
@@ -50,8 +40,6 @@ void MultiGas::esphome_library_log_(void *ctx, const char *msg) {
     ESP_LOGI(TAG, "%s", msg);
   }
 }
-
-#endif
 
 static uint8_t count_detected_sensors_(const MultiMultiGas &sensors) {
   uint8_t count = 0;
@@ -70,32 +58,6 @@ static uint8_t count_detected_sensors_(const MultiMultiGas &sensors) {
   return count;
 }
 
-TwoWire *MultiGas::wire_for_bus_() {
-#if !defined(USE_ARDUINO)
-  return nullptr;
-#else
-  if (this->bus_ == nullptr) {
-    ESP_LOGW(TAG, "No I2C bus configured; using default Wire");
-    return &Wire;
-  }
-
-#if defined(USE_ESP32)
-  // ESPHome disables RTTI (-fno-rtti), so use static_cast; bus_ is IDFI2CBus on ESP32.
-  auto *idf_bus = static_cast<i2c::IDFI2CBus *>(this->bus_);
-  if (idf_bus->get_port() == 1) {
-    ESP_LOGCONFIG(TAG, "Using Wire1 for I2C port 1");
-    return &Wire1;
-  }
-  ESP_LOGCONFIG(TAG, "Using Wire for I2C port %d", idf_bus->get_port());
-  return &Wire;
-#else
-  auto *internal = static_cast<i2c::InternalI2CBus *>(this->bus_);
-  ESP_LOGCONFIG(TAG, "Using Wire for I2C port %d", internal->get_port());
-  return &Wire;
-#endif
-#endif
-}
-
 void MultiGas::debug_probe_esphome_bus_() {
   if (this->bus_ == nullptr) {
     ESP_LOGW(TAG, "ESPHome I2C bus not available for debug probe");
@@ -104,8 +66,7 @@ void MultiGas::debug_probe_esphome_bus_() {
 
   ESP_LOGI(TAG, "Probing ESPHome I2C bus 0x60-0x7F:");
   for (uint8_t address = 0x60; address < 0x80; address++) {
-    uint8_t byte = 0;
-    i2c::ErrorCode err = this->bus_->read(address, &byte, 1);
+    i2c::ErrorCode err = this->bus_->write_readv(address, nullptr, 0, nullptr, 0);
     if (err == i2c::ERROR_OK) {
       ESP_LOGI(TAG, "  ESPHome probe 0x%02X: ACK", address);
     } else if (this->debug_) {
@@ -161,34 +122,20 @@ void MultiGas::publish_if_available(const char *name, sensor::Sensor *target, bo
 
 void MultiGas::setup() {
   this->sensors_.set_debug(this->debug_);
-  this->sensors_.set_log_callback(
-#if defined(USE_ESP32) && !defined(USE_ARDUINO)
-      esphome_library_log_,
-#else
-      nullptr,
-#endif
-      this);
+  this->sensors_.set_log_callback(esphome_library_log_, this);
 
   if (this->debug_) {
     ESP_LOGI(TAG, "Debug enabled");
     this->debug_probe_esphome_bus_();
   }
 
-  bool found = false;
-#if defined(USE_ESP32) && !defined(USE_ARDUINO)
-  ESP_LOGCONFIG(TAG, "Using ESPHome I2C bus (ESP-IDF)");
   MultiMultiGasI2cOps ops{};
   ops.ctx = this;
   ops.probe = esphome_i2c_probe_;
   ops.write = esphome_i2c_write_;
-  ops.write_read = esphome_i2c_write_read_;
-  found = this->sensors_.begin(&ops);
-#else
-  TwoWire *wire = this->wire_for_bus_();
-  found = this->sensors_.begin(wire);
-#endif
+  ops.read = esphome_i2c_read_;
 
-  if (!found) {
+  if (!this->sensors_.begin(&ops)) {
     ESP_LOGE(TAG, "No DFRobot gas sensors found on configured I2C bus");
     if (this->debug_) {
       ESP_LOGE(TAG, "If ESPHome i2c scan shows devices above but the library found none, check i2c_id and bus wiring");

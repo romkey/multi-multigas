@@ -48,10 +48,14 @@ jobs:
             ~/.platformio
           key: esphome-${{ hashFiles('requirements-test.txt') }}
 
+      # ESP-IDF converts PlatformIO libraries into IDF components and rejects
+      # local paths, so point the library at the commit under test instead.
       - name: Prepare ESPHome test config
+        env:
+          LIB_URL: https://github.com/${{ github.repository }}#${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          sed "s|multi-multigas=\\.\\.|multi-multigas=file://${GITHUB_WORKSPACE}|" tests/test.yaml > tests/test-ci.yaml
-          sed "s|multi-multigas=\\.\\.|multi-multigas=file://${GITHUB_WORKSPACE}|" tests/test_esp_idf.yaml > tests/test-ci-esp-idf.yaml
+          sed "s|multi-multigas=\\.\\.|multi-multigas=${LIB_URL}|" tests/test.yaml > tests/test-ci.yaml
+          sed "s|multi-multigas=\\.\\.|multi-multigas=${LIB_URL}|" tests/test_esp_idf.yaml > tests/test-ci-esp-idf.yaml
 
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
@@ -66,9 +70,6 @@ jobs:
 
       - name: Compile ESPHome config (Arduino)
         run: esphome compile tests/test-ci.yaml
-
-      - name: Validate ESPHome ESP-IDF config
-        run: esphome config tests/test-ci-esp-idf.yaml
 
       - name: Compile ESPHome config (ESP-IDF)
         run: esphome compile tests/test-ci-esp-idf.yaml

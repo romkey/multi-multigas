@@ -9,7 +9,6 @@ external_components:
 esphome:
   name: multi-multigas-test
   libraries:
-    - Wire
     - multi-multigas=..
 
 esp32:
