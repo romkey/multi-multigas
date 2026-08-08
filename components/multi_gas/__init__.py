@@ -13,7 +13,7 @@ DEPENDENCIES = ["i2c"]
 AUTO_LOAD = ["sensor"]
 
 multi_gas_ns = cg.esphome_ns.namespace("multi_gas")
-MultiGas = multi_gas_ns.class_("MultiGas", cg.PollingComponent)
+MultiGas = multi_gas_ns.class_("MultiGas", cg.PollingComponent, i2c.I2CDevice)
 
 CONF_DEBUG = "debug"
 

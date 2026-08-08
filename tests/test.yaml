@@ -4,7 +4,7 @@
 external_components:
   - source:
       type: local
-      path: ../esphome/components
+      path: ../components
 
 esphome:
   name: multi-multigas-test

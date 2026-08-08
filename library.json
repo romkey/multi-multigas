@@ -1,6 +1,6 @@
 {
   "name": "multi-multigas",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Simple interface for multiple DFRobot I2C gas sensors on one bus",
   "keywords": "gas, sensor, i2c, dfrobot, multigas",
   "repository": {

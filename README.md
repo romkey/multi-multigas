@@ -58,13 +58,13 @@ Each sensor type has a default address range. The lower 2 bits are set with hard
 
 ## ESPHome
 
-The external component lives at `esphome/components/multi_gas/`.
+The external component lives at `components/multi_gas/`.
 
 ```yaml
 esphome:
   name: my-sensor
   libraries:
-    - multi-multigas=https://github.com/romkey/multi-multigas#1.2.0
+    - multi-multigas=https://github.com/romkey/multi-multigas#1.2.1
 
 external_components:
   - source: github://romkey/multi-multigas
@@ -94,7 +94,7 @@ multi_gas:
 Notes:
 
 - **`multi_gas:` is correct** — it is a top-level component, not under `sensor:`.
-- **`external_components` is required** — use `github://romkey/multi-multigas` (ESPHome finds components in `esphome/components/` automatically).
+- **`external_components` is required** — use `github://romkey/multi-multigas` (ESPHome finds components in `components/` automatically).
 - Use **`i2c_id:`** to select which I2C bus when you have more than one. With a single `i2c:` block, `i2c_id` is optional.
 - On **ESP32 with ESP-IDF** (the default ESPHome framework), the component talks to sensors through the ESPHome I2C bus directly — you do not need the `Wire` library.
 - On **ESP32 with Arduino** framework, the DFRobot library uses Arduino `Wire`/`Wire1` matching the ESPHome bus port (0 → `Wire`, 1 → `Wire1`).
@@ -103,6 +103,7 @@ Notes:
 - O2 is reported in **percent**; other gases use **ppm**.
 - Sensors need about **3 minutes** to warm up before readings are published.
 - If no sensors are found at startup, the component marks itself as failed.
+- If your editor warns `multi_gas cannot be loaded via YAML (no CONFIG_SCHEMA)` but `esphome compile` succeeds, ensure `external_components` appears in your config (or an included package), then clear `.esphome/` and set `refresh: 0s`. Do not set a custom `path:` unless it points at the folder that contains `multi_gas/__init__.py` (for this repo, use the default GitHub source without `path:`).
 
 ## API
 
